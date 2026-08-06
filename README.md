@@ -1,109 +1,72 @@
 # La Rueda — Sistema de fondos rotativos (tanda/pasanaku)
 
-Aplicación web hecha con React, Vite y Supabase para administrar ruedas de
-ahorro rotativas con roles de admin y miembro.
+Sprint 1: autenticación con roles, alta de ruedas, alta/baja de integrantes,
+visual de la rueda y esquema completo de base de datos en Supabase.
 
-## Descripción
+## 1. Crear el proyecto en Supabase
 
-Este proyecto permite a un administrador crear y gestionar ruedas, agregar
-integrantes y compartir el estado de la rueda mediante un enlace público. La
-aplicación usa Supabase para autenticación, base de datos y seguridad a nivel
-de fila.
+1. Andá a https://supabase.com y creá un proyecto nuevo (gratis).
+2. En **SQL Editor**, pegá y ejecutá el contenido de `supabase/schema.sql`.
+   Esto crea todas las tablas, relaciones, políticas de seguridad (RLS) y la
+   función `get_rueda_publica` que sirve el link de solo lectura sin login.
+3. En **Project Settings → API**, copiá:
+   - `Project URL`
+   - `anon public key`
+4. Para el login por teléfono (código SMS): andá a **Authentication → Providers → Phone**,
+   activalo, y configurá un proveedor de SMS (Twilio es el más común). Esto
+   tiene un costo por SMS enviado — Twilio te da crédito gratis para probar.
+   Si todavía no lo configurás, el login por correo sigue funcionando igual.
 
-## Tecnologías
-
-- React 18
-- Vite
-- Tailwind CSS
-- React Router DOM
-- Supabase (Auth + Database)
-
-## Requisitos
-
-- Node.js 18+ / npm
-- Cuenta de Supabase
-- Variables de entorno del proyecto Supabase
-
-## Instalación local
+## 2. Configurar el proyecto local
 
 ```bash
-npm install
 cp .env.example .env
-```
+# completá VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY con los valores de arriba
 
-Edita `.env` con estos valores:
-
-```env
-VITE_SUPABASE_URL=https://tuprojecturl.supabase.co
-VITE_SUPABASE_ANON_KEY=tu_anon_public_key
-```
-
-## Ejecutar en desarrollo
-
-```bash
+npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173` en tu navegador.
+Abrí http://localhost:5173
 
-## Scripts disponibles
+## 3. Probar el flujo
 
-- `npm run dev` — inicia el servidor de desarrollo
-- `npm run build` — construye el sitio para producción
-- `npm run preview` — sirve la versión de producción localmente
+1. Registrate como **"Administro ruedas"** con tu correo.
+2. Creá una rueda (monto de aporte, frecuencia, fecha de inicio).
+3. Agregá integrantes por nombre y teléfono (todavía no necesitan cuenta propia).
+4. Mirá la visualización circular de la rueda con el fondo acumulado.
 
-## Configuración de Supabase
+## Qué incluye este sprint
 
-1. Crea un proyecto en https://supabase.com.
-2. Abre el editor SQL y ejecuta `supabase/schema.sql`.
-   Esto crea tablas, relaciones, políticas RLS y la función
-   `get_rueda_publica`.
-3. En `Project Settings → API`, copia `Project URL` y `anon public key`.
-4. Activa el proveedor de Phone en `Authentication → Providers → Phone` si
-   quieres usar login por SMS.
+- Autenticación real (Supabase Auth) con dos roles: `admin` y `miembro`,
+  con dos vías de acceso: correo/contraseña o teléfono con código SMS.
+- Base de datos con: perfiles, ruedas, integrantes, aportes y sorteos
+  (las dos últimas ya están en el esquema, listas para el próximo sprint).
+- Seguridad a nivel de fila: cada administrador solo ve y edita sus propias
+  ruedas; cada integrante solo ve las ruedas de las que forma parte.
+- CRUD de ruedas e integrantes (agregar / quitar / reactivar). Los integrantes
+  se cargan por nombre y teléfono, no necesitan cuenta propia.
+- **Link público de consulta** por rueda (`/publico/<token>`): cualquiera con
+  el link ve el estado de la rueda sin necesidad de iniciar sesión. Pensado
+  para compartir por WhatsApp.
+- **Recordatorios por WhatsApp**: el admin puede abrir WhatsApp con el mensaje
+  de recordatorio ya armado para cada integrante, o compartir el link público.
+- Visual de la rueda: los integrantes alrededor de un círculo con el fondo
+  acumulado en el centro, y color distinto según su estado.
 
-## Estructura del proyecto
+## Qué falta (próximos sprints)
 
-- `src/` — código fuente de React
-- `src/components/` — componentes reutilizables
-- `src/pages/` — páginas de la aplicación
-- `src/context/` — contexto y auth
-- `src/lib/` — helper para Supabase y WhatsApp
-- `supabase/schema.sql` — esquema y políticas de la base de datos
-
-## Funcionalidades principales
-
-- Autenticación con roles `admin` y `miembro`
-- CRUD de ruedas e integrantes
-- Seguridad RLS para datos por administrador e integrante
-- Enlace público de consulta: `/publico/<token>`
-- Recordatorios por WhatsApp
-- Visualización gráfica del estado de la rueda
+- **Sprint 2**: registro y control de aportes por período (pagado / pendiente / atrasado).
+- **Sprint 3**: motor de sorteo (excluye a quienes ya ganaron en el ciclo),
+  historial auditable y reinicio automático de ciclo cuando todos ya ganaron.
+- **Sprint 4**: reportes exportables.
+- **Sprint 5**: recordatorios automáticos (requiere WhatsApp Business API) y
+  vínculo automático entre un integrante cargado por el admin y su propia
+  cuenta cuando se registra.
 
 ## Despliegue
 
-El sitio puede desplegarse como app estática en Netlify, Vercel o cualquier
-hosting estático.
-
-Para desplegar en Netlify:
-
-1. Ejecuta `npm run build`
-2. Usa la carpeta `dist/` como carpeta de publicación
-3. Configura las variables de entorno:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-
-## Buenas prácticas
-
-- No subas archivos `.env` a GitHub.
-- Asegúrate de que `supabase/schema.sql` esté sincronizado con el proyecto.
-- Revisa las políticas RLS en Supabase si agregas nuevas rutas o tablas.
-
-## GitHub
-
-Repositorio: `https://github.com/sho220183/app-rueda`
-
-## Licencia
-
-Este proyecto no tiene licencia explícita. Agrega una si deseas compartir el
-código públicamente.
+Este proyecto es un sitio estático (Vite + React), igual que la landing de
+JCG Infotech. Se puede desplegar en Netlify: `npm run build` genera la carpeta
+`dist/`, y hay que cargar las mismas variables de entorno (`VITE_SUPABASE_URL`,
+`VITE_SUPABASE_ANON_KEY`) en la configuración de Netlify.

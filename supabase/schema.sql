@@ -110,18 +110,33 @@ alter table public.rueda_miembros enable row level security;
 alter table public.aportes enable row level security;
 alter table public.sorteos enable row level security;
 
+-- Función auxiliar: devuelve los ids de rueda a los que pertenece un usuario.
+-- Al ser SECURITY DEFINER, usarla DENTRO de una policy no vuelve a disparar
+-- las policies de rueda_miembros, evitando el clásico error de Postgres
+-- "infinite recursion detected in policy for relation rueda_miembros"
+-- que ocurre cuando una policy consulta la misma tabla sobre la que aplica.
+create or replace function public.rueda_ids_del_usuario(p_usuario_id uuid)
+returns setof uuid
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select rueda_id from public.rueda_miembros where usuario_id = p_usuario_id;
+$$;
+
 -- PROFILES: cada quien ve y edita su propio perfil
 create policy "ver propio perfil" on public.profiles
   for select using (auth.uid() = id);
+create policy "crear propio perfil" on public.profiles
+  for insert with check (auth.uid() = id);
 create policy "editar propio perfil" on public.profiles
   for update using (auth.uid() = id);
 create policy "ver perfiles de compañeros de rueda" on public.profiles
   for select using (
     id in (
       select rm.usuario_id from public.rueda_miembros rm
-      where rm.rueda_id in (
-        select rueda_id from public.rueda_miembros where usuario_id = auth.uid()
-      )
+      where rm.rueda_id in (select public.rueda_ids_del_usuario(auth.uid()))
     )
   );
 
@@ -130,7 +145,7 @@ create policy "admin gestiona sus ruedas" on public.ruedas
   for all using (admin_id = auth.uid());
 create policy "miembros ven sus ruedas" on public.ruedas
   for select using (
-    id in (select rueda_id from public.rueda_miembros where usuario_id = auth.uid())
+    id in (select public.rueda_ids_del_usuario(auth.uid()))
   );
 
 -- RUEDA_MIEMBROS: admin de la rueda gestiona; miembro ve su propia fila y las de su rueda
@@ -140,7 +155,7 @@ create policy "admin gestiona miembros" on public.rueda_miembros
   );
 create policy "miembro ve integrantes de su rueda" on public.rueda_miembros
   for select using (
-    rueda_id in (select rueda_id from public.rueda_miembros where usuario_id = auth.uid() and usuario_id is not null)
+    rueda_id in (select public.rueda_ids_del_usuario(auth.uid()))
   );
 
 -- APORTES: admin gestiona; miembro ve los aportes de su rueda (transparencia total)
@@ -150,7 +165,7 @@ create policy "admin gestiona aportes" on public.aportes
   );
 create policy "miembro ve aportes de su rueda" on public.aportes
   for select using (
-    rueda_id in (select rueda_id from public.rueda_miembros where usuario_id = auth.uid())
+    rueda_id in (select public.rueda_ids_del_usuario(auth.uid()))
   );
 
 -- SORTEOS: admin gestiona; miembro ve el historial de su rueda
@@ -160,7 +175,7 @@ create policy "admin gestiona sorteos" on public.sorteos
   );
 create policy "miembro ve sorteos de su rueda" on public.sorteos
   for select using (
-    rueda_id in (select rueda_id from public.rueda_miembros where usuario_id = auth.uid())
+    rueda_id in (select public.rueda_ids_del_usuario(auth.uid()))
   );
 
 -- ============================================================
