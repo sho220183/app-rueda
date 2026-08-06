@@ -71,10 +71,17 @@ Abrí http://localhost:5173
   — Integrantes, Aportes y Sorteos — como respaldo contable completo. También
   hay una vista de impresión/PDF limpia (sin botones ni menús) para cualquiera
   que prefiera papel.
+- **Fecha de sorteo programable**: se sugiere automáticamente al generar los
+  aportes del período (mismo día que el vencimiento de pago), el admin la
+  puede editar en cualquier momento, y el botón "Realizar sorteo" queda
+  bloqueado hasta que llegue esa fecha.
+- **Calendario visual**: un calendario mensual navegable (en el panel del
+  admin y en el link público) que marca el vencimiento de pago, la fecha de
+  sorteo programada y los sorteos ya realizados.
 
 ## Qué falta (próximos sprints)
 
-- **Sprint 5**: permisos por rueda (co-administradores), recordatorios
+- **Sprint 6**: permisos por rueda (co-administradores), recordatorios
   automáticos (requiere WhatsApp Business API) y vínculo automático entre un
   integrante cargado por el admin y su propia cuenta cuando se registra.
 

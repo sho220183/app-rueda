@@ -42,9 +42,17 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
       estado: 'pendiente'
     }))
     const { error } = await supabase.from('aportes').insert(filas)
+
+    if (!error && !rueda.fecha_sorteo) {
+      // Sugerimos la fecha de sorteo = fecha de vencimiento del aporte; el admin la puede editar después.
+      await supabase.from('ruedas').update({ fecha_sorteo: vencimiento }).eq('id', rueda.id)
+    }
+
     setGenerando(false)
-    if (!error) loadAportes()
-    else alert('Error al generar aportes: ' + error.message)
+    if (!error) {
+      onRuedaActualizada()
+      loadAportes()
+    } else alert('Error al generar aportes: ' + error.message)
   }
 
   async function marcarPagado(aporteId) {
@@ -65,7 +73,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
     setAvanzando(true)
     const { error } = await supabase
       .from('ruedas')
-      .update({ periodo_actual: rueda.periodo_actual + 1 })
+      .update({ periodo_actual: rueda.periodo_actual + 1, fecha_sorteo: null })
       .eq('id', rueda.id)
     setAvanzando(false)
     if (!error) onRuedaActualizada()

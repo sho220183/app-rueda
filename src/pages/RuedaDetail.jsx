@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar.jsx'
 import WheelVisual from '../components/WheelVisual.jsx'
 import AportesSection from '../components/AportesSection.jsx'
 import SorteoSection from '../components/SorteoSection.jsx'
+import CalendarioRueda from '../components/CalendarioRueda.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { exportarRuedaExcel } from '../lib/exportExcel.js'
 
@@ -23,6 +24,7 @@ export default function RuedaDetail() {
   const [error, setError] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [exportando, setExportando] = useState(false)
+  const [eventos, setEventos] = useState([])
 
   async function handleExportar() {
     setExportando(true)
@@ -58,6 +60,26 @@ export default function RuedaDetail() {
     setRueda(r)
     setMiembros(m || [])
     setLoading(false)
+
+    if (r) {
+      const [{ data: aportesPeriodo }, { data: sorteosHistoricos }] = await Promise.all([
+        supabase
+          .from('aportes')
+          .select('fecha_vencimiento')
+          .eq('rueda_id', r.id)
+          .eq('ciclo', r.ciclo_actual)
+          .eq('periodo', r.periodo_actual)
+          .limit(1),
+        supabase.from('sorteos').select('fecha, ciclo, periodo').eq('rueda_id', r.id)
+      ])
+      const evts = []
+      if (aportesPeriodo?.[0]) evts.push({ fecha: aportesPeriodo[0].fecha_vencimiento, tipo: 'pago' })
+      if (r.fecha_sorteo) evts.push({ fecha: r.fecha_sorteo, tipo: 'sorteo_programado' })
+      ;(sorteosHistoricos || []).forEach((s) =>
+        evts.push({ fecha: s.fecha, tipo: 'sorteo_realizado', label: `Sorteo realizado · ciclo ${s.ciclo}, período ${s.periodo}` })
+      )
+      setEventos(evts)
+    }
   }
 
   useEffect(() => {
@@ -172,6 +194,7 @@ export default function RuedaDetail() {
                 <p className="font-mono text-xl text-ink mt-1">{ganadores} / {miembros.filter(m => m.estado !== 'retirado').length}</p>
               </div>
             </div>
+            <CalendarioRueda eventos={eventos} />
           </div>
         </div>
 

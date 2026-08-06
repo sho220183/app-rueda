@@ -7,6 +7,9 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
   const [loading, setLoading] = useState(true)
   const [sorteando, setSorteando] = useState(false)
   const [reiniciando, setReiniciando] = useState(false)
+  const [editandoFecha, setEditandoFecha] = useState(false)
+  const [nuevaFecha, setNuevaFecha] = useState(rueda.fecha_sorteo || '')
+  const [guardandoFecha, setGuardandoFecha] = useState(false)
 
   const contribuyentes = miembros.filter((m) => m.estado !== 'retirado')
   const activos = miembros.filter((m) => m.estado === 'activo')
@@ -34,6 +37,10 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
 
   async function realizarSorteo() {
     if (activos.length === 0) return
+    if (fechaAunNoLlega) {
+      alert(`El sorteo está programado para el ${rueda.fecha_sorteo}. Todavía no llegó la fecha.`)
+      return
+    }
     if (!confirm(`Se va a sortear entre ${activos.length} integrante(s) elegibles. ¿Confirmás?`)) return
 
     setSorteando(true)
@@ -87,7 +94,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
     if (!error) {
       await supabase
         .from('ruedas')
-        .update({ ciclo_actual: rueda.ciclo_actual + 1, periodo_actual: 1 })
+        .update({ ciclo_actual: rueda.ciclo_actual + 1, periodo_actual: 1, fecha_sorteo: null })
         .eq('id', rueda.id)
     }
 
@@ -100,6 +107,22 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
 
     onActualizado()
   }
+
+  async function guardarFecha(e) {
+    e.preventDefault()
+    setGuardandoFecha(true)
+    const { error } = await supabase.from('ruedas').update({ fecha_sorteo: nuevaFecha || null }).eq('id', rueda.id)
+    setGuardandoFecha(false)
+    if (error) {
+      alert('Error al guardar la fecha: ' + error.message)
+      return
+    }
+    setEditandoFecha(false)
+    onActualizado()
+  }
+
+  const hoyStr = new Date().toISOString().slice(0, 10)
+  const fechaAunNoLlega = rueda.fecha_sorteo && rueda.fecha_sorteo > hoyStr
 
   function nombreDe(miembroId) {
     return miembros.find((m) => m.id === miembroId)?.nombre ?? '—'
@@ -157,12 +180,60 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
             <p className="text-sm text-muted mb-3">
               {activos.length} integrante(s) elegibles para el sorteo del período {rueda.periodo_actual}.
             </p>
+
+            {!editandoFecha ? (
+              <div className="flex items-center justify-center gap-2 mb-4 text-sm no-print">
+                <span className="text-muted">
+                  {rueda.fecha_sorteo ? (
+                    <>
+                      Sorteo programado para <span className="text-ink font-medium">{rueda.fecha_sorteo}</span>
+                    </>
+                  ) : (
+                    'Sin fecha programada todavía'
+                  )}
+                </span>
+                <button
+                  onClick={() => {
+                    setNuevaFecha(rueda.fecha_sorteo || '')
+                    setEditandoFecha(true)
+                  }}
+                  className="text-primary hover:underline text-xs"
+                >
+                  {rueda.fecha_sorteo ? 'Editar fecha' : 'Programar fecha'}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={guardarFecha} className="flex items-center justify-center gap-2 mb-4 no-print">
+                <input
+                  type="date"
+                  value={nuevaFecha}
+                  onChange={(e) => setNuevaFecha(e.target.value)}
+                  className="border border-line rounded-sm px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                />
+                <button
+                  type="submit"
+                  disabled={guardandoFecha}
+                  className="text-sm bg-primary text-white rounded-sm px-3 py-1.5 disabled:opacity-60"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoFecha(false)}
+                  className="text-sm text-muted hover:underline"
+                >
+                  Cancelar
+                </button>
+              </form>
+            )}
+
             <button
               onClick={realizarSorteo}
-              disabled={sorteando || activos.length === 0}
-              className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-60 no-print"
+              disabled={sorteando || activos.length === 0 || fechaAunNoLlega}
+              title={fechaAunNoLlega ? `Disponible a partir del ${rueda.fecha_sorteo}` : undefined}
+              className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed no-print"
             >
-              {sorteando ? 'Sorteando...' : '🎲 Realizar sorteo'}
+              {sorteando ? 'Sorteando...' : fechaAunNoLlega ? `Disponible el ${rueda.fecha_sorteo}` : '🎲 Realizar sorteo'}
             </button>
           </div>
         )

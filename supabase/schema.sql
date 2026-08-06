@@ -50,6 +50,7 @@ create table public.ruedas (
   estado text not null default 'activa' check (estado in ('activa','finalizada','pausada')),
   ciclo_actual int not null default 1,
   periodo_actual int not null default 1, -- período de aportes dentro del ciclo
+  fecha_sorteo date, -- fecha programada del sorteo del período actual, editable por el admin
   token text not null unique default encode(gen_random_bytes(6), 'hex'), -- para el link público de solo lectura
   created_at timestamptz not null default now()
 );
@@ -202,6 +203,12 @@ begin
     'ciclo_actual', r.ciclo_actual,
     'periodo_actual', r.periodo_actual,
     'estado', r.estado,
+    'fecha_sorteo', r.fecha_sorteo,
+    'proxima_fecha_vencimiento', (
+      select a.fecha_vencimiento from public.aportes a
+      where a.rueda_id = r.id and a.ciclo = r.ciclo_actual and a.periodo = r.periodo_actual
+      limit 1
+    ),
     'miembros', coalesce((
       select jsonb_agg(
         jsonb_build_object('id', m.id, 'nombre', m.nombre, 'estado', m.estado)

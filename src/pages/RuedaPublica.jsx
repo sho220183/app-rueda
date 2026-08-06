@@ -2,8 +2,23 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import WheelVisual from '../components/WheelVisual.jsx'
+import CalendarioRueda from '../components/CalendarioRueda.jsx'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo' }
+
+function armarEventos(data) {
+  const evts = []
+  if (data.proxima_fecha_vencimiento) evts.push({ fecha: data.proxima_fecha_vencimiento, tipo: 'pago' })
+  if (data.fecha_sorteo) evts.push({ fecha: data.fecha_sorteo, tipo: 'sorteo_programado' })
+  ;(data.sorteos || []).forEach((s) =>
+    evts.push({
+      fecha: s.fecha,
+      tipo: 'sorteo_realizado',
+      label: `Sorteo realizado · ciclo ${s.ciclo}, período ${s.periodo}`
+    })
+  )
+  return evts
+}
 
 export default function RuedaPublica() {
   const { token } = useParams()
@@ -63,6 +78,10 @@ export default function RuedaPublica() {
 
         <div className="bg-surface border border-line rounded-lg p-5 mb-6 flex items-center justify-center">
           <WheelVisual miembros={data.miembros} montoFondo={montoFondo} moneda={data.moneda} />
+        </div>
+
+        <div className="mb-6">
+          <CalendarioRueda eventos={armarEventos(data)} />
         </div>
 
         <h2 className="font-display text-lg text-ink mb-3">Integrantes</h2>
