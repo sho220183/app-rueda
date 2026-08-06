@@ -49,6 +49,7 @@ create table public.ruedas (
   fecha_inicio date not null,
   estado text not null default 'activa' check (estado in ('activa','finalizada','pausada')),
   ciclo_actual int not null default 1,
+  periodo_actual int not null default 1, -- período de aportes dentro del ciclo
   token text not null unique default encode(gen_random_bytes(6), 'hex'), -- para el link público de solo lectura
   created_at timestamptz not null default now()
 );

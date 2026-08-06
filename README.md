@@ -54,9 +54,14 @@ Abrí http://localhost:5173
 - Visual de la rueda: los integrantes alrededor de un círculo con el fondo
   acumulado en el centro, y color distinto según su estado.
 
+- **Control de aportes**: el admin genera los aportes del período con un clic
+  (uno por integrante activo, según el monto y frecuencia de la rueda), marca
+  cada uno como pagado, y puede recordar por WhatsApp a quien está atrasado.
+  Un botón cierra el período y abre el siguiente. Hay un historial resumido
+  de períodos anteriores.
+
 ## Qué falta (próximos sprints)
 
-- **Sprint 2**: registro y control de aportes por período (pagado / pendiente / atrasado).
 - **Sprint 3**: motor de sorteo (excluye a quienes ya ganaron en el ciclo),
   historial auditable y reinicio automático de ciclo cuando todos ya ganaron.
 - **Sprint 4**: reportes exportables.
