@@ -60,12 +60,18 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
       .from('aportes')
       .update({ estado: 'pagado', fecha_pago: new Date().toISOString().slice(0, 10) })
       .eq('id', aporteId)
-    if (!error) loadAportes()
+    if (!error) {
+      loadAportes()
+      onRuedaActualizada()
+    }
   }
 
   async function marcarPendiente(aporteId) {
     const { error } = await supabase.from('aportes').update({ estado: 'pendiente', fecha_pago: null }).eq('id', aporteId)
-    if (!error) loadAportes()
+    if (!error) {
+      loadAportes()
+      onRuedaActualizada()
+    }
   }
 
   async function avanzarPeriodo() {

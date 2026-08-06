@@ -7,6 +7,7 @@ import WheelVisual from '../components/WheelVisual.jsx'
 import AportesSection from '../components/AportesSection.jsx'
 import SorteoSection from '../components/SorteoSection.jsx'
 import CalendarioRueda from '../components/CalendarioRueda.jsx'
+import AdminSecundario from '../components/AdminSecundario.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { exportarRuedaExcel } from '../lib/exportExcel.js'
 
@@ -25,6 +26,7 @@ export default function RuedaDetail() {
   const [copiado, setCopiado] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [eventos, setEventos] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
 
   async function handleExportar() {
     setExportando(true)
@@ -36,7 +38,11 @@ export default function RuedaDetail() {
     setExportando(false)
   }
 
-  const esAdmin = rueda && user && rueda.admin_id === user.id
+  const esPrincipal = rueda && user && rueda.admin_id === user.id
+  const esCoadmin = rueda && user && rueda.co_admin_id === user.id
+  const esAdmin = esPrincipal || esCoadmin
+  const ruedaActiva = rueda?.estado === 'activa'
+  const puedeGestionar = esAdmin && ruedaActiva
   const linkPublico = rueda ? `${window.location.origin}/publico/${rueda.token}` : ''
 
   function mensajeRecordatorio(nombre) {
@@ -80,6 +86,7 @@ export default function RuedaDetail() {
       )
       setEventos(evts)
     }
+    setRefreshKey((k) => k + 1)
   }
 
   useEffect(() => {
@@ -113,6 +120,22 @@ export default function RuedaDetail() {
 
   async function handleReactivar(miembroId) {
     const { error } = await supabase.from('rueda_miembros').update({ estado: 'activo' }).eq('id', miembroId)
+    if (!error) loadAll()
+  }
+
+  async function cerrarRueda() {
+    if (
+      !confirm(
+        '¿Cerrar esta rueda? No se van a poder generar más aportes ni sorteos, pero todo el historial queda disponible para consulta y exportación.'
+      )
+    )
+      return
+    const { error } = await supabase.from('ruedas').update({ estado: 'finalizada' }).eq('id', rueda.id)
+    if (!error) loadAll()
+  }
+
+  async function reabrirRueda() {
+    const { error } = await supabase.from('ruedas').update({ estado: 'activa' }).eq('id', rueda.id)
     if (!error) loadAll()
   }
 
@@ -168,9 +191,25 @@ export default function RuedaDetail() {
             <h1 className="font-display text-2xl text-ink">{rueda.nombre}</h1>
             <p className="text-muted text-sm">
               Aporte Gs. {Number(rueda.monto_aporte).toLocaleString('es-PY')} · {rueda.frecuencia} · Ciclo {rueda.ciclo_actual}
+              {!ruedaActiva && <span className="text-alert"> · Cerrada</span>}
             </p>
           </div>
+          {esPrincipal && (
+            <button
+              onClick={ruedaActiva ? cerrarRueda : reabrirRueda}
+              className={`text-xs no-print hover:underline ${ruedaActiva ? 'text-alert' : 'text-primary'}`}
+            >
+              {ruedaActiva ? 'Cerrar rueda' : 'Reabrir rueda'}
+            </button>
+          )}
         </div>
+
+        {!ruedaActiva && (
+          <div className="bg-line/40 border border-line rounded-lg p-3 mb-6 text-sm text-muted no-print">
+            Esta rueda está cerrada: no se pueden generar nuevos aportes ni sorteos. El historial sigue disponible
+            para consulta y exportación.
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <div className="bg-surface border border-line rounded-lg p-5 flex items-center justify-center">
@@ -223,13 +262,21 @@ export default function RuedaDetail() {
           </div>
         )}
 
-        <AportesSection rueda={rueda} miembros={miembros} esAdmin={esAdmin} onRuedaActualizada={loadAll} />
+        {esPrincipal && <AdminSecundario rueda={rueda} onActualizado={loadAll} />}
 
-        <SorteoSection rueda={rueda} miembros={miembros} esAdmin={esAdmin} onActualizado={loadAll} />
+        <AportesSection rueda={rueda} miembros={miembros} esAdmin={puedeGestionar} onRuedaActualizada={loadAll} />
+
+        <SorteoSection
+          rueda={rueda}
+          miembros={miembros}
+          esAdmin={puedeGestionar}
+          onActualizado={loadAll}
+          refreshSignal={refreshKey}
+        />
 
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-xl text-ink">Integrantes</h2>
-          {esAdmin && (
+          {puedeGestionar && (
             <button
               onClick={() => setShowAdd((v) => !v)}
               className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2 no-print"
@@ -239,7 +286,7 @@ export default function RuedaDetail() {
           )}
         </div>
 
-        {showAdd && (
+        {showAdd && puedeGestionar && (
           <form onSubmit={handleAdd} className="bg-surface border border-line rounded-lg p-5 mb-5 space-y-4 no-print">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -303,12 +350,12 @@ export default function RuedaDetail() {
                     Recordar por WhatsApp
                   </a>
                 )}
-                {esAdmin && m.estado !== 'retirado' && (
+                {puedeGestionar && m.estado !== 'retirado' && (
                   <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline no-print">
                     Quitar
                   </button>
                 )}
-                {esAdmin && m.estado === 'retirado' && (
+                {puedeGestionar && m.estado === 'retirado' && (
                   <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline no-print">
                     Reactivar
                   </button>

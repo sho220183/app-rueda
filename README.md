@@ -78,12 +78,23 @@ Abrí http://localhost:5173
 - **Calendario visual**: un calendario mensual navegable (en el panel del
   admin y en el link público) que marca el vencimiento de pago, la fecha de
   sorteo programada y los sorteos ya realizados.
+- **Umbral de pago para sortear**: el botón de sorteo también queda
+  bloqueado si menos del 85% de los integrantes pagó su aporte del período,
+  además de la fecha programada.
+- **Co-administrador**: el admin principal (quien creó la rueda) puede
+  asignar a una segunda persona —que ya tenga cuenta, por correo o
+  teléfono— como co-administrador de esa rueda puntual. El co-admin puede
+  gestionar todo excepto asignar o quitar a otro co-admin.
+- **Cerrar / reabrir rueda**: en vez de eliminar datos, el admin principal
+  puede cerrar una rueda (por ejemplo si los integrantes se retiran). Una
+  rueda cerrada no permite nuevos aportes ni sorteos, pero todo el historial
+  sigue disponible para consulta y exportación, y se puede reabrir.
 
 ## Qué falta (próximos sprints)
 
-- **Sprint 6**: permisos por rueda (co-administradores), recordatorios
-  automáticos (requiere WhatsApp Business API) y vínculo automático entre un
-  integrante cargado por el admin y su propia cuenta cuando se registra.
+- Recordatorios automáticos (requiere WhatsApp Business API) y vínculo
+  automático entre un integrante cargado por el admin y su propia cuenta
+  cuando se registra.
 
 ## Despliegue
 

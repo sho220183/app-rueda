@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buildWaLink } from '../lib/whatsapp.js'
 
-export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado }) {
+export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado, refreshSignal }) {
   const [sorteos, setSorteos] = useState([])
   const [loading, setLoading] = useState(true)
   const [sorteando, setSorteando] = useState(false)
@@ -10,10 +10,18 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
   const [editandoFecha, setEditandoFecha] = useState(false)
   const [nuevaFecha, setNuevaFecha] = useState(rueda.fecha_sorteo || '')
   const [guardandoFecha, setGuardandoFecha] = useState(false)
+  const [aportesPeriodo, setAportesPeriodo] = useState([])
+
+  const UMBRAL_PAGO = 0.85
 
   const contribuyentes = miembros.filter((m) => m.estado !== 'retirado')
   const activos = miembros.filter((m) => m.estado === 'activo')
   const cicloCompleto = contribuyentes.length > 0 && activos.length === 0
+
+  const aportesGenerados = aportesPeriodo.length > 0
+  const pagados = aportesPeriodo.filter((a) => a.estado === 'pagado').length
+  const porcentajePagado = contribuyentes.length > 0 ? pagados / contribuyentes.length : 0
+  const pagoInsuficiente = !aportesGenerados || porcentajePagado < UMBRAL_PAGO
 
   async function loadSorteos() {
     setLoading(true)
@@ -26,9 +34,23 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
     setLoading(false)
   }
 
+  async function loadAportesPeriodo() {
+    const { data } = await supabase
+      .from('aportes')
+      .select('estado')
+      .eq('rueda_id', rueda.id)
+      .eq('ciclo', rueda.ciclo_actual)
+      .eq('periodo', rueda.periodo_actual)
+    setAportesPeriodo(data || [])
+  }
+
   useEffect(() => {
     loadSorteos()
   }, [rueda.id, rueda.ciclo_actual])
+
+  useEffect(() => {
+    loadAportesPeriodo()
+  }, [rueda.id, rueda.ciclo_actual, rueda.periodo_actual, refreshSignal])
 
   const yaSorteadoEstePeriodo = sorteos.some(
     (s) => s.ciclo === rueda.ciclo_actual && s.periodo === rueda.periodo_actual
@@ -41,7 +63,14 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
       alert(`El sorteo está programado para el ${rueda.fecha_sorteo}. Todavía no llegó la fecha.`)
       return
     }
+    if (pagoInsuficiente) {
+      alert(
+        `Todavía no se llegó al ${Math.round(UMBRAL_PAGO * 100)}% de aportes pagados (llevás ${pagados}/${contribuyentes.length}).`
+      )
+      return
+    }
     if (!confirm(`Se va a sortear entre ${activos.length} integrante(s) elegibles. ¿Confirmás?`)) return
+
 
     setSorteando(true)
 
@@ -229,12 +258,27 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
 
             <button
               onClick={realizarSorteo}
-              disabled={sorteando || activos.length === 0 || fechaAunNoLlega}
+              disabled={sorteando || activos.length === 0 || fechaAunNoLlega || pagoInsuficiente}
               title={fechaAunNoLlega ? `Disponible a partir del ${rueda.fecha_sorteo}` : undefined}
               className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed no-print"
             >
-              {sorteando ? 'Sorteando...' : fechaAunNoLlega ? `Disponible el ${rueda.fecha_sorteo}` : '🎲 Realizar sorteo'}
+              {sorteando
+                ? 'Sorteando...'
+                : fechaAunNoLlega
+                ? `Disponible el ${rueda.fecha_sorteo}`
+                : !aportesGenerados
+                ? 'Generá los aportes primero'
+                : pagoInsuficiente
+                ? `Faltan pagos (${pagados}/${contribuyentes.length})`
+                : '🎲 Realizar sorteo'}
             </button>
+
+            {aportesGenerados && (
+              <p className="text-xs text-muted mt-2 no-print">
+                Pagos al día: {pagados}/{contribuyentes.length} ({Math.round(porcentajePagado * 100)}%) · se necesita
+                al menos {Math.round(UMBRAL_PAGO * 100)}% para poder sortear.
+              </p>
+            )}
           </div>
         )
       )}

@@ -43,6 +43,7 @@ create table public.ruedas (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
   admin_id uuid not null references public.profiles(id),
+  co_admin_id uuid references public.profiles(id), -- segundo administrador opcional, asignado por el admin principal
   monto_aporte numeric(12,2) not null check (monto_aporte > 0),
   moneda text not null default 'PYG',
   frecuencia text not null check (frecuencia in ('semanal','quincenal','mensual')),
@@ -144,7 +145,7 @@ create policy "ver perfiles de compañeros de rueda" on public.profiles
 
 -- RUEDAS: el admin ve y gestiona las suyas; los miembros ven las suyas
 create policy "admin gestiona sus ruedas" on public.ruedas
-  for all using (admin_id = auth.uid());
+  for all using (admin_id = auth.uid() or co_admin_id = auth.uid());
 create policy "miembros ven sus ruedas" on public.ruedas
   for select using (
     id in (select public.rueda_ids_del_usuario(auth.uid()))
@@ -153,7 +154,7 @@ create policy "miembros ven sus ruedas" on public.ruedas
 -- RUEDA_MIEMBROS: admin de la rueda gestiona; miembro ve su propia fila y las de su rueda
 create policy "admin gestiona miembros" on public.rueda_miembros
   for all using (
-    rueda_id in (select id from public.ruedas where admin_id = auth.uid())
+    rueda_id in (select id from public.ruedas where admin_id = auth.uid() or co_admin_id = auth.uid())
   );
 create policy "miembro ve integrantes de su rueda" on public.rueda_miembros
   for select using (
@@ -163,7 +164,7 @@ create policy "miembro ve integrantes de su rueda" on public.rueda_miembros
 -- APORTES: admin gestiona; miembro ve los aportes de su rueda (transparencia total)
 create policy "admin gestiona aportes" on public.aportes
   for all using (
-    rueda_id in (select id from public.ruedas where admin_id = auth.uid())
+    rueda_id in (select id from public.ruedas where admin_id = auth.uid() or co_admin_id = auth.uid())
   );
 create policy "miembro ve aportes de su rueda" on public.aportes
   for select using (
@@ -173,7 +174,7 @@ create policy "miembro ve aportes de su rueda" on public.aportes
 -- SORTEOS: admin gestiona; miembro ve el historial de su rueda
 create policy "admin gestiona sorteos" on public.sorteos
   for all using (
-    rueda_id in (select id from public.ruedas where admin_id = auth.uid())
+    rueda_id in (select id from public.ruedas where admin_id = auth.uid() or co_admin_id = auth.uid())
   );
 create policy "miembro ve sorteos de su rueda" on public.sorteos
   for select using (
@@ -241,3 +242,70 @@ end;
 $$;
 
 grant execute on function public.get_rueda_publica(text) to anon, authenticated;
+
+-- ============================================================
+-- CO-ADMINISTRADOR: el admin principal puede nombrar a UNA
+-- segunda persona (que ya tenga cuenta) como co-administrador
+-- de una rueda puntual, buscándola por correo o teléfono.
+-- ============================================================
+create or replace function public.asignar_coadmin(p_rueda_id uuid, p_identificador text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid;
+  v_admin uuid;
+begin
+  select admin_id into v_admin from public.ruedas where id = p_rueda_id;
+  if v_admin is distinct from auth.uid() then
+    raise exception 'Solo el administrador principal puede asignar un co-administrador';
+  end if;
+
+  select id into v_uid from auth.users
+  where lower(email) = lower(p_identificador)
+     or regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g') = regexp_replace(p_identificador, '[^0-9]', '', 'g')
+  limit 1;
+
+  if v_uid is null then
+    raise exception 'No encontramos ninguna cuenta registrada con ese correo o teléfono';
+  end if;
+
+  if v_uid = v_admin then
+    raise exception 'Esa persona ya es la administradora principal';
+  end if;
+
+  update public.ruedas set co_admin_id = v_uid where id = p_rueda_id;
+end;
+$$;
+
+grant execute on function public.asignar_coadmin(uuid, text) to authenticated;
+
+create or replace function public.quitar_coadmin(p_rueda_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.ruedas set co_admin_id = null
+  where id = p_rueda_id and admin_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.quitar_coadmin(uuid) to authenticated;
+
+-- Devuelve solo el nombre de un usuario (no sensible), para mostrar
+-- quién es el co-administrador sin exponer el resto de su perfil.
+create or replace function public.nombre_publico(p_id uuid)
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select nombre from public.profiles where id = p_id;
+$$;
+
+grant execute on function public.nombre_publico(uuid) to authenticated;
