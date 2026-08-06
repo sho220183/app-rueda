@@ -119,7 +119,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
             <button
               onClick={reiniciarCiclo}
               disabled={reiniciando}
-              className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2 disabled:opacity-60"
+              className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2 disabled:opacity-60 no-print"
             >
               {reiniciando ? 'Reiniciando...' : `Reiniciar e iniciar ciclo ${rueda.ciclo_actual + 1}`}
             </button>
@@ -144,7 +144,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
                   href={buildWaLink(ganador.telefono, msg)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-block mt-3 text-sm bg-primary hover:bg-primary-dark transition text-white rounded-sm px-4 py-2"
+                  className="inline-block mt-3 text-sm bg-primary hover:bg-primary-dark transition text-white rounded-sm px-4 py-2 no-print"
                 >
                   Avisar al ganador por WhatsApp
                 </a>
@@ -160,7 +160,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado 
             <button
               onClick={realizarSorteo}
               disabled={sorteando || activos.length === 0}
-              className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-60"
+              className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-60 no-print"
             >
               {sorteando ? 'Sorteando...' : '🎲 Realizar sorteo'}
             </button>

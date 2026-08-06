@@ -7,6 +7,7 @@ import WheelVisual from '../components/WheelVisual.jsx'
 import AportesSection from '../components/AportesSection.jsx'
 import SorteoSection from '../components/SorteoSection.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
+import { exportarRuedaExcel } from '../lib/exportExcel.js'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo', retirado: 'Retirado' }
 
@@ -21,6 +22,17 @@ export default function RuedaDetail() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [exportando, setExportando] = useState(false)
+
+  async function handleExportar() {
+    setExportando(true)
+    try {
+      await exportarRuedaExcel(rueda)
+    } catch (e) {
+      alert('Error al exportar: ' + e.message)
+    }
+    setExportando(false)
+  }
 
   const esAdmin = rueda && user && rueda.admin_id === user.id
   const linkPublico = rueda ? `${window.location.origin}/publico/${rueda.token}` : ''
@@ -104,11 +116,30 @@ export default function RuedaDetail() {
 
   return (
     <div className="min-h-screen bg-bg font-body">
-      <TopBar />
+      <TopBar className="no-print" />
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <Link to="/" className="text-sm text-muted hover:text-primary">
-          ← Volver a mis ruedas
-        </Link>
+        <div className="flex items-center justify-between mb-3 no-print">
+          <Link to="/" className="text-sm text-muted hover:text-primary">
+            ← Volver a mis ruedas
+          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition"
+            >
+              Imprimir / PDF
+            </button>
+            {esAdmin && (
+              <button
+                onClick={handleExportar}
+                disabled={exportando}
+                className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition disabled:opacity-60"
+              >
+                {exportando ? 'Generando...' : 'Exportar a Excel'}
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between mt-3 mb-6">
           <div>
@@ -145,7 +176,7 @@ export default function RuedaDetail() {
         </div>
 
         {esAdmin && (
-          <div className="bg-surface border border-line rounded-lg p-4 mb-8 flex items-center justify-between flex-wrap gap-3">
+          <div className="bg-surface border border-line rounded-lg p-4 mb-8 flex items-center justify-between flex-wrap gap-3 no-print">
             <div>
               <p className="text-sm font-medium text-ink">Link de consulta para los integrantes</p>
               <p className="text-xs text-muted mt-0.5">No necesitan cuenta, solo ver el estado de la rueda</p>
@@ -178,7 +209,7 @@ export default function RuedaDetail() {
           {esAdmin && (
             <button
               onClick={() => setShowAdd((v) => !v)}
-              className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2"
+              className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2 no-print"
             >
               {showAdd ? 'Cancelar' : '+ Agregar integrante'}
             </button>
@@ -186,7 +217,7 @@ export default function RuedaDetail() {
         </div>
 
         {showAdd && (
-          <form onSubmit={handleAdd} className="bg-surface border border-line rounded-lg p-5 mb-5 space-y-4">
+          <form onSubmit={handleAdd} className="bg-surface border border-line rounded-lg p-5 mb-5 space-y-4 no-print">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1">Nombre</label>
@@ -244,18 +275,18 @@ export default function RuedaDetail() {
                     href={buildWaLink(m.telefono, mensajeRecordatorio(m.nombre))}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary hover:underline no-print"
                   >
                     Recordar por WhatsApp
                   </a>
                 )}
                 {esAdmin && m.estado !== 'retirado' && (
-                  <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline">
+                  <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline no-print">
                     Quitar
                   </button>
                 )}
                 {esAdmin && m.estado === 'retirado' && (
-                  <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline">
+                  <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline no-print">
                     Reactivar
                   </button>
                 )}

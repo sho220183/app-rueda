@@ -102,7 +102,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
           <button
             onClick={avanzarPeriodo}
             disabled={avanzando}
-            className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition disabled:opacity-60"
+            className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition disabled:opacity-60 no-print"
           >
             {avanzando ? 'Avanzando...' : `Cerrar y pasar al período ${rueda.periodo_actual + 1} →`}
           </button>
@@ -113,7 +113,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
         <p className="text-muted text-sm">Cargando aportes...</p>
       ) : !yaGenerado ? (
         esAdmin ? (
-          <div className="bg-surface border border-dashed border-line rounded-lg p-6 text-center">
+          <div className="bg-surface border border-dashed border-line rounded-lg p-6 text-center no-print">
             <p className="text-sm text-muted mb-3">
               Todavía no generaste los aportes del período {rueda.periodo_actual} para los{' '}
               {miembrosContribuyentes.length} integrantes activos.
@@ -171,18 +171,18 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
                         href={buildWaLink(miembro.telefono, mensajeAtraso(miembro.nombre, a.monto, a.fecha_vencimiento))}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-primary hover:underline"
+                        className="text-xs text-primary hover:underline no-print"
                       >
                         Recordar
                       </a>
                     )}
                     {esAdmin && a.estado !== 'pagado' && (
-                      <button onClick={() => marcarPagado(a.id)} className="text-xs bg-primary text-white rounded-sm px-2 py-1">
+                      <button onClick={() => marcarPagado(a.id)} className="text-xs bg-primary text-white rounded-sm px-2 py-1 no-print">
                         Marcar pagado
                       </button>
                     )}
                     {esAdmin && a.estado === 'pagado' && (
-                      <button onClick={() => marcarPendiente(a.id)} className="text-xs text-muted hover:underline">
+                      <button onClick={() => marcarPendiente(a.id)} className="text-xs text-muted hover:underline no-print">
                         Deshacer
                       </button>
                     )}

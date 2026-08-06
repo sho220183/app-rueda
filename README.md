@@ -67,13 +67,16 @@ Abrí http://localhost:5173
   reiniciarlo con un clic (todos vuelven a estar elegibles, empieza el ciclo
   siguiente). Historial completo de sorteos, visible también en el link
   público sin login.
+- **Reportes exportables**: el admin descarga un Excel (.xlsx) con tres hojas
+  — Integrantes, Aportes y Sorteos — como respaldo contable completo. También
+  hay una vista de impresión/PDF limpia (sin botones ni menús) para cualquiera
+  que prefiera papel.
 
 ## Qué falta (próximos sprints)
 
-- **Sprint 4**: reportes exportables.
-- **Sprint 5**: recordatorios automáticos (requiere WhatsApp Business API) y
-  vínculo automático entre un integrante cargado por el admin y su propia
-  cuenta cuando se registra.
+- **Sprint 5**: permisos por rueda (co-administradores), recordatorios
+  automáticos (requiere WhatsApp Business API) y vínculo automático entre un
+  integrante cargado por el admin y su propia cuenta cuando se registra.
 
 ## Despliegue
 

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-export default function TopBar() {
+export default function TopBar({ className = '' }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
 
@@ -11,7 +11,7 @@ export default function TopBar() {
   }
 
   return (
-    <header className="border-b border-line bg-surface">
+    <header className={`border-b border-line bg-surface ${className}`}>
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-primary text-gold-light font-display text-sm flex items-center justify-center">
