@@ -8,6 +8,7 @@ import AportesSection from '../components/AportesSection.jsx'
 import SorteoSection from '../components/SorteoSection.jsx'
 import CalendarioRueda from '../components/CalendarioRueda.jsx'
 import AdminSecundario from '../components/AdminSecundario.jsx'
+import Footer from '../components/Footer.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { exportarRuedaExcel } from '../lib/exportExcel.js'
 
@@ -366,6 +367,7 @@ export default function RuedaDetail() {
         </div>
 
       </main>
+      <Footer />
     </div>
   )
 }

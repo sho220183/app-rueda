@@ -13,11 +13,29 @@ export default function TopBar({ className = '' }) {
   return (
     <header className={`border-b border-line bg-surface ${className}`}>
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary text-gold-light font-display text-sm flex items-center justify-center">
-            R
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary text-gold-light font-display text-sm flex items-center justify-center">
+              R
+            </div>
+            <span className="font-display text-lg text-ink">La Rueda</span>
           </div>
-          <span className="font-display text-lg text-ink">La Rueda</span>
+          <a
+            href="https://jcginfotech.net.py"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden sm:flex items-center pl-3 border-l border-line"
+          >
+            <img
+              src="/jcg-logo.png"
+              srcSet="/jcg-logo.png 1x, /jcg-logo@2x.png 2x"
+              alt="JCG InfraTech"
+              className="h-6 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          </a>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted">{profile?.nombre}</span>

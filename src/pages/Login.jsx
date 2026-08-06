@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient'
+import Footer from '../components/Footer.jsx'
 
 export default function Login() {
   const [via, setVia] = useState('correo') // 'correo' | 'telefono'
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center px-4 font-body">
+    <div className="min-h-screen bg-bg flex items-center justify-center px-4 font-body relative">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary text-gold-light font-display text-xl mb-4">
@@ -41,6 +42,9 @@ export default function Login() {
         <div className="bg-surface rounded-lg border border-line p-6">
           {via === 'correo' ? <LoginConCorreo /> : <LoginConTelefono />}
         </div>
+      </div>
+      <div className="absolute bottom-4 left-0 right-0">
+        <Footer />
       </div>
     </div>
   )

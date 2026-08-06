@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext.jsx'
 import TopBar from '../components/TopBar.jsx'
+import Footer from '../components/Footer.jsx'
 
 const FRECUENCIAS = [
   { value: 'semanal', label: 'Semanal' },
@@ -176,6 +177,7 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   )
 }

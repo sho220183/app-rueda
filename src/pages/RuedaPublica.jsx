@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import WheelVisual from '../components/WheelVisual.jsx'
 import CalendarioRueda from '../components/CalendarioRueda.jsx'
+import Footer from '../components/Footer.jsx'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo' }
 
@@ -126,6 +127,7 @@ export default function RuedaPublica() {
           Este link es solo de consulta. Para cualquier duda sobre tu aporte, escribile al administrador de la rueda.
         </p>
       </main>
+      <Footer />
     </div>
   )
 }

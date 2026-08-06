@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext.jsx'
 import TopBar from '../components/TopBar.jsx'
+import Footer from '../components/Footer.jsx'
 
 export default function MemberDashboard() {
   const { user } = useAuth()
@@ -63,6 +64,7 @@ export default function MemberDashboard() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   )
 }
