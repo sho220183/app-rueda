@@ -200,6 +200,7 @@ begin
     'moneda', r.moneda,
     'frecuencia', r.frecuencia,
     'ciclo_actual', r.ciclo_actual,
+    'periodo_actual', r.periodo_actual,
     'estado', r.estado,
     'miembros', coalesce((
       select jsonb_agg(
@@ -208,6 +209,20 @@ begin
       )
       from public.rueda_miembros m
       where m.rueda_id = r.id and m.estado <> 'retirado'
+    ), '[]'::jsonb),
+    'sorteos', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'ciclo', s.ciclo,
+          'periodo', s.periodo,
+          'fecha', s.fecha,
+          'monto_entregado', s.monto_entregado,
+          'ganador_nombre', (select nombre from public.rueda_miembros where id = s.ganador_id)
+        )
+        order by s.created_at desc
+      )
+      from public.sorteos s
+      where s.rueda_id = r.id
     ), '[]'::jsonb)
   )
   into resultado

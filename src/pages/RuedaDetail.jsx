@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import TopBar from '../components/TopBar.jsx'
 import WheelVisual from '../components/WheelVisual.jsx'
 import AportesSection from '../components/AportesSection.jsx'
+import SorteoSection from '../components/SorteoSection.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo', retirado: 'Retirado' }
@@ -170,6 +171,8 @@ export default function RuedaDetail() {
 
         <AportesSection rueda={rueda} miembros={miembros} esAdmin={esAdmin} onRuedaActualizada={loadAll} />
 
+        <SorteoSection rueda={rueda} miembros={miembros} esAdmin={esAdmin} onActualizado={loadAll} />
+
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-xl text-ink">Integrantes</h2>
           {esAdmin && (
@@ -261,9 +264,6 @@ export default function RuedaDetail() {
           ))}
         </div>
 
-        <p className="text-xs text-muted mt-6">
-          El sorteo y el reinicio automático de ciclo llegan en el siguiente sprint.
-        </p>
       </main>
     </div>
   )

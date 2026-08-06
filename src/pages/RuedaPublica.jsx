@@ -66,7 +66,7 @@ export default function RuedaPublica() {
         </div>
 
         <h2 className="font-display text-lg text-ink mb-3">Integrantes</h2>
-        <div className="bg-surface border border-line rounded-lg divide-y divide-line">
+        <div className="bg-surface border border-line rounded-lg divide-y divide-line mb-6">
           {(data.miembros ?? []).map((m) => (
             <div key={m.id} className="flex items-center justify-between p-4">
               <p className="text-ink font-medium">{m.nombre}</p>
@@ -80,6 +80,28 @@ export default function RuedaPublica() {
             </div>
           ))}
         </div>
+
+        {data.sorteos?.length > 0 && (
+          <>
+            <h2 className="font-display text-lg text-ink mb-3">Historial de sorteos</h2>
+            <div className="bg-surface border border-line rounded-lg divide-y divide-line">
+              {data.sorteos.map((s, i) => (
+                <div key={i} className="flex items-center justify-between p-4 text-sm">
+                  <div>
+                    <span className="text-ink font-medium">{s.ganador_nombre}</span>
+                    <span className="text-muted"> · ciclo {s.ciclo}, período {s.periodo}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-ink">
+                      {data.moneda} {Number(s.monto_entregado).toLocaleString('es-PY')}
+                    </p>
+                    <p className="text-xs text-muted">{s.fecha}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <p className="text-xs text-muted mt-6 text-center">
           Este link es solo de consulta. Para cualquier duda sobre tu aporte, escribile al administrador de la rueda.

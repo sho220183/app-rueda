@@ -60,10 +60,16 @@ Abrí http://localhost:5173
   Un botón cierra el período y abre el siguiente. Hay un historial resumido
   de períodos anteriores.
 
+- **Motor de sorteo**: sorteo aleatorio entre los integrantes que aún no
+  ganaron en el ciclo, con resultado auditable (semilla guardada). El ganador
+  queda excluido de próximos sorteos pero sigue apareciendo en los aportes.
+  Cuando todos ya ganaron, la app detecta el fin del ciclo y el admin puede
+  reiniciarlo con un clic (todos vuelven a estar elegibles, empieza el ciclo
+  siguiente). Historial completo de sorteos, visible también en el link
+  público sin login.
+
 ## Qué falta (próximos sprints)
 
-- **Sprint 3**: motor de sorteo (excluye a quienes ya ganaron en el ciclo),
-  historial auditable y reinicio automático de ciclo cuando todos ya ganaron.
 - **Sprint 4**: reportes exportables.
 - **Sprint 5**: recordatorios automáticos (requiere WhatsApp Business API) y
   vínculo automático entre un integrante cargado por el admin y su propia
