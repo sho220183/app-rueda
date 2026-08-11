@@ -119,7 +119,7 @@ export default function RuedaDetail() {
       return
     }
     if (data?.id) {
-      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: data.id }).catch(() => {})
+      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: data.id }).then(null, () => {})
     }
     setNuevo({ nombre: '', telefono: '' })
     setShowAdd(false)
@@ -175,7 +175,7 @@ export default function RuedaDetail() {
       return
     }
     if (editMiembro.telefono) {
-      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: editandoMiembroId }).catch(() => {})
+      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: editandoMiembroId }).then(null, () => {})
     }
     setEditandoMiembroId(null)
     loadAll()
