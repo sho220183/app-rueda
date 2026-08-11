@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buildWaLink } from '../lib/whatsapp.js'
+import RuletaSorteo from './RuletaSorteo.jsx'
 
 export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado, refreshSignal }) {
   const [sorteos, setSorteos] = useState([])
@@ -11,6 +12,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   const [nuevaFecha, setNuevaFecha] = useState(rueda.fecha_sorteo || '')
   const [guardandoFecha, setGuardandoFecha] = useState(false)
   const [aportesPeriodo, setAportesPeriodo] = useState([])
+  const [resultado, setResultado] = useState(null) // { ganador, participantes, monto } mientras se anima
 
   const UMBRAL_PAGO = 0.85
 
@@ -105,6 +107,14 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
       alert('El sorteo se guardó pero hubo un error al actualizar el integrante: ' + errMiembro.message)
     }
 
+    // Guardamos el resultado ya persistido en la base, y recién ahí mostramos
+    // la ruleta animada. Los datos del resto de la pantalla se refrescan
+    // cuando se cierra la animación, para no arruinar la sorpresa.
+    setResultado({ ganador, participantes: activos, monto })
+  }
+
+  async function cerrarResultado() {
+    setResultado(null)
     await loadSorteos()
     onActualizado()
   }
@@ -301,6 +311,15 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
             ))}
           </div>
         </details>
+      )}
+
+      {resultado && (
+        <RuletaSorteo
+          participantes={resultado.participantes}
+          ganador={resultado.ganador}
+          montoEntregado={resultado.monto}
+          onFinalizar={cerrarResultado}
+        />
       )}
     </div>
   )

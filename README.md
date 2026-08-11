@@ -85,6 +85,11 @@ Abrí http://localhost:5173
   asignar a una segunda persona —que ya tenga cuenta, por correo o
   teléfono— como co-administrador de esa rueda puntual. El co-admin puede
   gestionar todo excepto asignar o quitar a otro co-admin.
+- **Ruleta animada del sorteo**: al presionar "Realizar sorteo" ahora se ve
+  una ruleta que gira entre los integrantes elegibles y frena en el ganador,
+  seguida de una explosión de confetti/papel picado con su nombre y el monto
+  que le corresponde. El resultado ya quedó guardado en la base antes de la
+  animación — la ruleta solo la presenta con más show.
 - **Cerrar / reabrir rueda**: en vez de eliminar datos, el admin principal
   puede cerrar una rueda (por ejemplo si los integrantes se retiran). Una
   rueda cerrada no permite nuevos aportes ni sorteos, pero todo el historial
