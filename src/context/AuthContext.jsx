@@ -36,6 +36,9 @@ export function AuthProvider({ children }) {
     } else {
       setProfileError(null)
       setProfile(data)
+      if (data?.telefono) {
+        supabase.rpc('vincular_miembro_por_telefono').catch(() => {})
+      }
     }
   }
 

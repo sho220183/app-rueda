@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext.jsx'
 import TopBar from '../components/TopBar.jsx'
@@ -13,6 +13,7 @@ const FRECUENCIAS = [
 
 export default function AdminDashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [ruedas, setRuedas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -24,6 +25,30 @@ export default function AdminDashboard() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [duplicando, setDuplicando] = useState(null)
+
+  async function duplicarRueda(r, e) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDuplicando(r.id)
+    const { data, error } = await supabase
+      .from('ruedas')
+      .insert({
+        nombre: `${r.nombre} (copia)`,
+        admin_id: user.id,
+        monto_aporte: r.monto_aporte,
+        frecuencia: r.frecuencia,
+        fecha_inicio: new Date().toISOString().slice(0, 10)
+      })
+      .select('id')
+      .single()
+    setDuplicando(null)
+    if (error) {
+      alert('Error al duplicar: ' + error.message)
+      return
+    }
+    navigate(`/ruedas/${data.id}`)
+  }
 
   async function loadRuedas() {
     setLoading(true)
@@ -162,15 +187,24 @@ export default function AdminDashboard() {
                     {r.rueda_miembros[0]?.count ?? 0} integrantes · {FRECUENCIAS.find((f) => f.value === r.frecuencia)?.label} · Ciclo {r.ciclo_actual}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-sm text-ink">Gs. {Number(r.monto_aporte).toLocaleString('es-PY')}</p>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      r.estado === 'activa' ? 'bg-primary/10 text-primary' : 'bg-line text-muted'
-                    }`}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={(e) => duplicarRueda(r, e)}
+                    disabled={duplicando === r.id}
+                    className="text-xs text-muted hover:text-primary hover:underline disabled:opacity-60"
                   >
-                    {r.estado}
-                  </span>
+                    {duplicando === r.id ? 'Duplicando...' : 'Duplicar'}
+                  </button>
+                  <div className="text-right">
+                    <p className="font-mono text-sm text-ink">Gs. {Number(r.monto_aporte).toLocaleString('es-PY')}</p>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        r.estado === 'activa' ? 'bg-primary/10 text-primary' : 'bg-line text-muted'
+                      }`}
+                    >
+                      {r.estado}
+                    </span>
+                  </div>
                 </div>
               </Link>
             ))}

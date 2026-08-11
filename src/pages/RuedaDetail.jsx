@@ -28,6 +28,12 @@ export default function RuedaDetail() {
   const [exportando, setExportando] = useState(false)
   const [eventos, setEventos] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showEditRueda, setShowEditRueda] = useState(false)
+  const [editRueda, setEditRueda] = useState(null)
+  const [savingRueda, setSavingRueda] = useState(false)
+  const [editandoMiembroId, setEditandoMiembroId] = useState(null)
+  const [editMiembro, setEditMiembro] = useState({ nombre: '', telefono: '' })
+  const [savingMiembro, setSavingMiembro] = useState(false)
 
   async function handleExportar() {
     setExportando(true)
@@ -98,18 +104,80 @@ export default function RuedaDetail() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    const { error } = await supabase.from('rueda_miembros').insert({
-      rueda_id: id,
-      nombre: nuevo.nombre,
-      telefono: nuevo.telefono || null
-    })
+    const { data, error } = await supabase
+      .from('rueda_miembros')
+      .insert({
+        rueda_id: id,
+        nombre: nuevo.nombre,
+        telefono: nuevo.telefono || null
+      })
+      .select('id')
+      .single()
     setSaving(false)
     if (error) {
       setError(error.message)
       return
     }
+    if (data?.id) {
+      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: data.id }).catch(() => {})
+    }
     setNuevo({ nombre: '', telefono: '' })
     setShowAdd(false)
+    loadAll()
+  }
+
+  function abrirEdicionRueda() {
+    setEditRueda({
+      nombre: rueda.nombre,
+      monto_aporte: rueda.monto_aporte,
+      frecuencia: rueda.frecuencia,
+      fecha_inicio: rueda.fecha_inicio
+    })
+    setShowEditRueda(true)
+  }
+
+  async function guardarEdicionRueda(e) {
+    e.preventDefault()
+    setSavingRueda(true)
+    const { error } = await supabase
+      .from('ruedas')
+      .update({
+        nombre: editRueda.nombre,
+        monto_aporte: Number(editRueda.monto_aporte),
+        frecuencia: editRueda.frecuencia,
+        fecha_inicio: editRueda.fecha_inicio
+      })
+      .eq('id', rueda.id)
+    setSavingRueda(false)
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      return
+    }
+    setShowEditRueda(false)
+    loadAll()
+  }
+
+  function abrirEdicionMiembro(m) {
+    setEditandoMiembroId(m.id)
+    setEditMiembro({ nombre: m.nombre, telefono: m.telefono || '' })
+  }
+
+  async function guardarEdicionMiembro(e) {
+    e.preventDefault()
+    setSavingMiembro(true)
+    const { error } = await supabase
+      .from('rueda_miembros')
+      .update({ nombre: editMiembro.nombre, telefono: editMiembro.telefono || null })
+      .eq('id', editandoMiembroId)
+    setSavingMiembro(false)
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      return
+    }
+    if (editMiembro.telefono) {
+      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: editandoMiembroId }).catch(() => {})
+    }
+    setEditandoMiembroId(null)
     loadAll()
   }
 
@@ -196,14 +264,83 @@ export default function RuedaDetail() {
             </p>
           </div>
           {esPrincipal && (
-            <button
-              onClick={ruedaActiva ? cerrarRueda : reabrirRueda}
-              className={`text-xs no-print hover:underline ${ruedaActiva ? 'text-alert' : 'text-primary'}`}
-            >
-              {ruedaActiva ? 'Cerrar rueda' : 'Reabrir rueda'}
-            </button>
+            <div className="flex items-center gap-3 no-print">
+              <button onClick={abrirEdicionRueda} className="text-xs text-primary hover:underline">
+                Editar rueda
+              </button>
+              <button
+                onClick={ruedaActiva ? cerrarRueda : reabrirRueda}
+                className={`text-xs hover:underline ${ruedaActiva ? 'text-alert' : 'text-primary'}`}
+              >
+                {ruedaActiva ? 'Cerrar rueda' : 'Reabrir rueda'}
+              </button>
+            </div>
           )}
         </div>
+
+        {showEditRueda && (
+          <form onSubmit={guardarEdicionRueda} className="bg-surface border border-line rounded-lg p-5 mb-6 space-y-4 no-print">
+            <div>
+              <label className="block text-xs text-muted mb-1">Nombre de la rueda</label>
+              <input
+                required
+                value={editRueda.nombre}
+                onChange={(e) => setEditRueda({ ...editRueda, nombre: e.target.value })}
+                className="w-full border border-line rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-muted mb-1">Monto de aporte (Gs.)</label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  value={editRueda.monto_aporte}
+                  onChange={(e) => setEditRueda({ ...editRueda, monto_aporte: e.target.value })}
+                  className="w-full border border-line rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1">Frecuencia</label>
+                <select
+                  value={editRueda.frecuencia}
+                  onChange={(e) => setEditRueda({ ...editRueda, frecuencia: e.target.value })}
+                  className="w-full border border-line rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                >
+                  <option value="semanal">Semanal</option>
+                  <option value="quincenal">Quincenal</option>
+                  <option value="mensual">Mensual</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1">Fecha de inicio</label>
+              <input
+                type="date"
+                required
+                value={editRueda.fecha_inicio}
+                onChange={(e) => setEditRueda({ ...editRueda, fecha_inicio: e.target.value })}
+                className="w-full border border-line rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+              />
+              <p className="text-xs text-muted mt-1">
+                Cambiarla solo afecta el cálculo de futuros vencimientos, no los aportes ya generados.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={savingRueda}
+                className="bg-primary hover:bg-primary-dark transition text-white text-sm rounded-sm px-4 py-2 disabled:opacity-60"
+              >
+                {savingRueda ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button type="button" onClick={() => setShowEditRueda(false)} className="text-sm text-muted hover:underline">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
 
         {!ruedaActiva && (
           <div className="bg-line/40 border border-line rounded-lg p-3 mb-6 text-sm text-muted no-print">
@@ -324,44 +461,86 @@ export default function RuedaDetail() {
             <p className="p-4 text-sm text-muted">Todavía no hay integrantes en esta rueda.</p>
           )}
           {miembros.map((m) => (
-            <div key={m.id} className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-ink font-medium">{m.nombre}</p>
-                <p className="text-xs text-muted">{m.telefono || 'Sin teléfono'}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    m.estado === 'activo'
-                      ? 'bg-primary/10 text-primary'
-                      : m.estado === 'ganador'
-                      ? 'bg-gold/20 text-gold'
-                      : 'bg-line text-muted'
-                  }`}
-                >
-                  {ESTADO_LABEL[m.estado]}
-                </span>
-                {esAdmin && m.telefono && m.estado === 'activo' && (
-                  <a
-                    href={buildWaLink(m.telefono, mensajeRecordatorio(m.nombre))}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-primary hover:underline no-print"
+            <div key={m.id} className="p-4">
+              {editandoMiembroId === m.id ? (
+                <form onSubmit={guardarEdicionMiembro} className="flex items-center gap-2 flex-wrap no-print">
+                  <input
+                    required
+                    value={editMiembro.nombre}
+                    onChange={(e) => setEditMiembro({ ...editMiembro, nombre: e.target.value })}
+                    className="border border-line rounded-sm px-2 py-1.5 text-sm flex-1 min-w-[140px] focus:outline-none focus:ring-2 focus:ring-gold"
+                    placeholder="Nombre"
+                  />
+                  <input
+                    value={editMiembro.telefono}
+                    onChange={(e) => setEditMiembro({ ...editMiembro, telefono: e.target.value })}
+                    className="border border-line rounded-sm px-2 py-1.5 text-sm flex-1 min-w-[140px] focus:outline-none focus:ring-2 focus:ring-gold"
+                    placeholder="Teléfono"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingMiembro}
+                    className="text-xs bg-primary text-white rounded-sm px-3 py-1.5 disabled:opacity-60"
                   >
-                    Recordar por WhatsApp
-                  </a>
-                )}
-                {puedeGestionar && m.estado !== 'retirado' && (
-                  <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline no-print">
-                    Quitar
+                    Guardar
                   </button>
-                )}
-                {puedeGestionar && m.estado === 'retirado' && (
-                  <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline no-print">
-                    Reactivar
+                  <button
+                    type="button"
+                    onClick={() => setEditandoMiembroId(null)}
+                    className="text-xs text-muted hover:underline"
+                  >
+                    Cancelar
                   </button>
-                )}
-              </div>
+                </form>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-ink font-medium">{m.nombre}</p>
+                    <p className="text-xs text-muted">
+                      {m.telefono || 'Sin teléfono'}
+                      {m.usuario_id && <span className="text-primary"> · con cuenta vinculada</span>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        m.estado === 'activo'
+                          ? 'bg-primary/10 text-primary'
+                          : m.estado === 'ganador'
+                          ? 'bg-gold/20 text-gold'
+                          : 'bg-line text-muted'
+                      }`}
+                    >
+                      {ESTADO_LABEL[m.estado]}
+                    </span>
+                    {esAdmin && m.telefono && m.estado === 'activo' && (
+                      <a
+                        href={buildWaLink(m.telefono, mensajeRecordatorio(m.nombre))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary hover:underline no-print"
+                      >
+                        Recordar por WhatsApp
+                      </a>
+                    )}
+                    {puedeGestionar && (
+                      <button onClick={() => abrirEdicionMiembro(m)} className="text-xs text-muted hover:underline no-print">
+                        Editar
+                      </button>
+                    )}
+                    {puedeGestionar && m.estado !== 'retirado' && (
+                      <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline no-print">
+                        Quitar
+                      </button>
+                    )}
+                    {puedeGestionar && m.estado === 'retirado' && (
+                      <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline no-print">
+                        Reactivar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

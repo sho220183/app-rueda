@@ -81,9 +81,10 @@ create table public.aportes (
   ciclo int not null,
   periodo int not null, -- número de sorteo dentro del ciclo
   monto numeric(12,2) not null,
+  monto_pagado numeric(12,2) not null default 0, -- soporta abonos parciales
   fecha_vencimiento date not null,
   fecha_pago date,
-  estado text not null default 'pendiente' check (estado in ('pagado','pendiente','atrasado')),
+  estado text not null default 'pendiente' check (estado in ('pagado','parcial','pendiente','atrasado')),
   created_at timestamptz not null default now(),
   unique (miembro_id, ciclo, periodo)
 );
@@ -309,3 +310,85 @@ as $$
 $$;
 
 grant execute on function public.nombre_publico(uuid) to authenticated;
+
+-- ============================================================
+-- VÍNCULO AUTOMÁTICO DE CUENTA POR TELÉFONO
+-- Compara los últimos 9 dígitos (número local paraguayo, sin
+-- importar si viene con 0, +595 o 595 adelante) para conectar
+-- una fila de rueda_miembros (cargada por nombre/teléfono) con
+-- la cuenta real de esa persona, en cualquiera de las dos
+-- direcciones: cuando ella se registra, o cuando el admin la
+-- agrega y ella ya tenía cuenta.
+-- ============================================================
+
+-- Se llama después de iniciar sesión: vincula todas las filas
+-- sueltas que coincidan con el teléfono del usuario actual.
+create or replace function public.vincular_miembro_por_telefono()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_telefono text;
+  v_count integer;
+begin
+  select telefono into v_telefono from public.profiles where id = auth.uid();
+  if v_telefono is null or length(regexp_replace(v_telefono, '[^0-9]', '', 'g')) < 8 then
+    return 0;
+  end if;
+
+  update public.rueda_miembros
+  set usuario_id = auth.uid()
+  where usuario_id is null
+    and telefono is not null
+    and right(regexp_replace(telefono, '[^0-9]', '', 'g'), 9)
+      = right(regexp_replace(v_telefono, '[^0-9]', '', 'g'), 9);
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+grant execute on function public.vincular_miembro_por_telefono() to authenticated;
+
+-- Se llama después de agregar (o editar el teléfono de) un
+-- integrante: si ya existe una cuenta con ese teléfono, la vincula.
+create or replace function public.vincular_nuevo_miembro(p_miembro_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rueda_id uuid;
+  v_telefono text;
+  v_uid uuid;
+begin
+  select rueda_id, telefono into v_rueda_id, v_telefono
+  from public.rueda_miembros where id = p_miembro_id;
+
+  if not exists (
+    select 1 from public.ruedas
+    where id = v_rueda_id and (admin_id = auth.uid() or co_admin_id = auth.uid())
+  ) then
+    return;
+  end if;
+
+  if v_telefono is null or length(regexp_replace(v_telefono, '[^0-9]', '', 'g')) < 8 then
+    return;
+  end if;
+
+  select p.id into v_uid
+  from public.profiles p
+  where right(regexp_replace(coalesce(p.telefono, ''), '[^0-9]', '', 'g'), 9)
+      = right(regexp_replace(v_telefono, '[^0-9]', '', 'g'), 9)
+  limit 1;
+
+  if v_uid is not null then
+    update public.rueda_miembros set usuario_id = v_uid where id = p_miembro_id;
+  end if;
+end;
+$$;
+
+grant execute on function public.vincular_nuevo_miembro(uuid) to authenticated;

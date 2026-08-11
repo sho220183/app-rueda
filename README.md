@@ -94,12 +94,24 @@ Abrí http://localhost:5173
   puede cerrar una rueda (por ejemplo si los integrantes se retiran). Una
   rueda cerrada no permite nuevos aportes ni sorteos, pero todo el historial
   sigue disponible para consulta y exportación, y se puede reabrir.
+- **Editar ruedas e integrantes**: se puede corregir el nombre, teléfono de
+  un integrante, y el nombre/monto/frecuencia/fecha de inicio de una rueda
+  ya creada, sin tener que empezar de nuevo.
+- **Vínculo automático de cuenta**: si un integrante cargado por nombre y
+  teléfono se registra en la app con ese mismo número (en cualquier orden),
+  su cuenta se conecta sola a esa fila — deja de estar "sin cuenta" y ve la
+  rueda en su panel de integrante.
+- **Pagos parciales**: un aporte ya no es solo pagado/pendiente — se pueden
+  registrar abonos parciales, y el sistema calcula automáticamente cuánto
+  falta para completarlo.
+- **Duplicar rueda**: desde "Tus ruedas", un botón clona el nombre, monto y
+  frecuencia de una rueda existente para arrancar un grupo nuevo sin cargar
+  todo de cero (no copia integrantes ni historial).
 
-## Qué falta (próximos sprints)
+## Qué falta
 
-- Recordatorios automáticos (requiere WhatsApp Business API) y vínculo
-  automático entre un integrante cargado por el admin y su propia cuenta
-  cuando se registra.
+- Recordatorios automáticos (pendiente: activar Twilio) y la migración a
+  Android/iOS (esquema ya definido, pendiente de arrancar).
 
 ## Despliegue
 

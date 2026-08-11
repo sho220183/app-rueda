@@ -23,6 +23,7 @@ export async function exportarRuedaExcel(rueda) {
     Ciclo: a.ciclo,
     Período: a.periodo,
     Monto: Number(a.monto),
+    'Monto pagado': Number(a.monto_pagado || 0),
     Vencimiento: a.fecha_vencimiento,
     Estado: a.estado,
     'Fecha de pago': a.fecha_pago || ''
