@@ -2,10 +2,10 @@ import { Routes, Route } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
-import AdminDashboard from './pages/AdminDashboard.jsx'
-import MemberDashboard from './pages/MemberDashboard.jsx'
+import Dashboard from './pages/Dashboard.jsx'
 import RuedaDetail from './pages/RuedaDetail.jsx'
 import RuedaPublica from './pages/RuedaPublica.jsx'
+import Unirme from './pages/Unirme.jsx'
 
 function Home() {
   const { profile, profileError, refreshProfile } = useAuth()
@@ -32,7 +32,7 @@ function Home() {
   }
 
   if (!profile) return null
-  return profile.rol === 'admin' ? <AdminDashboard /> : <MemberDashboard />
+  return <Dashboard />
 }
 
 export default function App() {
@@ -40,6 +40,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/publico/:token" element={<RuedaPublica />} />
+      <Route path="/unirme/:token" element={<Unirme />} />
       <Route
         path="/"
         element={

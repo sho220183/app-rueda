@@ -17,6 +17,31 @@ visual de la rueda y esquema completo de base de datos en Supabase.
    tiene un costo por SMS enviado — Twilio te da crédito gratis para probar.
    Si todavía no lo configurás, el login por correo sigue funcionando igual.
 
+### 1b. Migración 002 (seguridad, sorteo en servidor, invitaciones)
+
+Después de `schema.sql`, ejecutá **`supabase/002_seguridad_sorteo_invitaciones.sql`**
+en el SQL Editor. Si tu proyecto ya estaba en producción, ejecutala **antes**
+de desplegar esta versión del frontend (la app nueva llama a funciones que
+crea esta migración). Es re-ejecutable.
+
+Qué hace:
+- La vinculación automática por teléfono solo usa teléfonos **verificados por SMS**.
+- Corrige `asignar_coadmin` (antes podía asignar a un usuario cualquiera).
+- El co-admin ya no puede cambiar el admin, el co-admin, el token ni cerrar o borrar la rueda.
+- Sorteo, avance de período, reinicio de ciclo y generación de aportes se ejecutan
+  en el servidor. El sorteo guarda la semilla y los participantes para auditarlo:
+  ganador = `participantes[(semilla hex mod n) + 1]`.
+- Vencimientos continuos entre ciclos (y recalcula los no pagados de ciclos ≥ 2).
+- El rol ya no se elige al registrarse: quien crea una rueda la administra.
+- Invitaciones personales de un solo uso (`/unirme/<token>`, válidas 14 días).
+
+Después ejecutá también **`supabase/003_ajustes_advisors.sql`** (ajustes del Security Advisor de Supabase).
+
+Pruebas de la base: `npm run test:db` (Postgres embebido, no toca tu proyecto).
+
+Al final del archivo 002 hay una consulta comentada para revisar integrantes que
+quedaron vinculados con un teléfono no verificado.
+
 ## 2. Configurar el proyecto local
 
 ```bash
@@ -31,10 +56,12 @@ Abrí http://localhost:5173
 
 ## 3. Probar el flujo
 
-1. Registrate como **"Administro ruedas"** con tu correo.
+1. Registrate con tu correo (ya no se elige rol: cualquier cuenta puede crear ruedas).
 2. Creá una rueda (monto de aporte, frecuencia, fecha de inicio).
 3. Agregá integrantes por nombre y teléfono (todavía no necesitan cuenta propia).
-4. Mirá la visualización circular de la rueda con el fondo acumulado.
+4. Tocá **Invitar** en un integrante y mandale el link por WhatsApp. Al abrirlo,
+   crea su cuenta (o inicia sesión) y queda vinculado a su lugar en la rueda.
+5. En el inicio, cada cuenta ve "Ruedas que administrás" y "Ruedas en las que participás".
 
 ## Qué incluye este sprint
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { hoyLocal } from '../lib/periodos.js'
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MESES = [
@@ -23,14 +24,14 @@ const LABEL_TIPO = {
  */
 export default function CalendarioRueda({ eventos = [] }) {
   const [mesVisible, setMesVisible] = useState(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
+    const hoy = hoyLocal()
     const proximo = [...eventos].filter((e) => e.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))[0]
     const base = proximo || eventos[0]
     return base ? new Date(base.fecha + 'T00:00:00') : new Date()
   })
 
   useEffect(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
+    const hoy = hoyLocal()
     const proximo = [...eventos].filter((e) => e.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))[0]
     const base = proximo || eventos[0]
     if (base) setMesVisible(new Date(base.fecha + 'T00:00:00'))
@@ -49,7 +50,7 @@ export default function CalendarioRueda({ eventos = [] }) {
     return eventos.filter((e) => e.fecha === fechaStr)
   }
 
-  const hoyStr = new Date().toISOString().slice(0, 10)
+  const hoyStr = hoyLocal()
 
   return (
     <div className="bg-surface border border-line rounded-lg p-4">

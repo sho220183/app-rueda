@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buildWaLink } from '../lib/whatsapp.js'
+import { hoyLocal } from '../lib/periodos.js'
 import RuletaSorteo from './RuletaSorteo.jsx'
 
 export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado, refreshSignal }) {
@@ -76,41 +77,24 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
 
     setSorteando(true)
 
-    const azar = crypto.getRandomValues(new Uint32Array(1))[0]
-    const idx = azar % activos.length
-    const ganador = activos[idx]
-    const monto = rueda.monto_aporte * contribuyentes.length
+    // El ganador se elige en el servidor (no se puede manipular desde el
+    // navegador). Las validaciones de arriba son solo para avisar antes.
+    const { data, error } = await supabase.rpc('realizar_sorteo', { p_rueda_id: rueda.id })
+    setSorteando(false)
 
-    const { error: errSorteo } = await supabase.from('sorteos').insert({
-      rueda_id: rueda.id,
-      ciclo: rueda.ciclo_actual,
-      periodo: rueda.periodo_actual,
-      ganador_id: ganador.id,
-      monto_entregado: monto,
-      semilla: `${azar}`
-    })
-
-    if (errSorteo) {
-      setSorteando(false)
-      alert('Error al sortear: ' + errSorteo.message)
+    if (error) {
+      alert('No se pudo realizar el sorteo: ' + error.message)
+      onActualizado()
       return
     }
 
-    const { error: errMiembro } = await supabase
-      .from('rueda_miembros')
-      .update({ estado: 'ganador', ciclo_ganador: rueda.ciclo_actual })
-      .eq('id', ganador.id)
+    const porId = Object.fromEntries(miembros.map((m) => [m.id, m]))
+    const ganador = porId[data.ganador_id] ?? { id: data.ganador_id, nombre: '—' }
+    const participantes = (data.participantes || []).map((id) => porId[id]).filter(Boolean)
 
-    setSorteando(false)
-
-    if (errMiembro) {
-      alert('El sorteo se guardó pero hubo un error al actualizar el integrante: ' + errMiembro.message)
-    }
-
-    // Guardamos el resultado ya persistido en la base, y recién ahí mostramos
-    // la ruleta animada. Los datos del resto de la pantalla se refrescan
-    // cuando se cierra la animación, para no arruinar la sorpresa.
-    setResultado({ ganador, participantes: activos, monto })
+    // El resultado ya está guardado; recién ahí mostramos la ruleta animada.
+    // El resto de la pantalla se refresca al cerrar la animación.
+    setResultado({ ganador, participantes: participantes.length ? participantes : [ganador], monto: data.monto })
   }
 
   async function cerrarResultado() {
@@ -124,19 +108,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
       return
     setReiniciando(true)
 
-    const { error } = await supabase
-      .from('rueda_miembros')
-      .update({ estado: 'activo', ciclo_ganador: null })
-      .eq('rueda_id', rueda.id)
-      .eq('estado', 'ganador')
-
-    if (!error) {
-      await supabase
-        .from('ruedas')
-        .update({ ciclo_actual: rueda.ciclo_actual + 1, periodo_actual: 1, fecha_sorteo: null })
-        .eq('id', rueda.id)
-    }
-
+    const { error } = await supabase.rpc('reiniciar_ciclo', { p_rueda_id: rueda.id })
     setReiniciando(false)
 
     if (error) {
@@ -160,7 +132,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
     onActualizado()
   }
 
-  const hoyStr = new Date().toISOString().slice(0, 10)
+  const hoyStr = hoyLocal()
   const fechaAunNoLlega = rueda.fecha_sorteo && rueda.fecha_sorteo > hoyStr
 
   function nombreDe(miembroId) {

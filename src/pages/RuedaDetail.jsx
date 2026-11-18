@@ -34,6 +34,8 @@ export default function RuedaDetail() {
   const [editandoMiembroId, setEditandoMiembroId] = useState(null)
   const [editMiembro, setEditMiembro] = useState({ nombre: '', telefono: '' })
   const [savingMiembro, setSavingMiembro] = useState(false)
+  const [invitandoId, setInvitandoId] = useState(null)
+  const [invitacion, setInvitacion] = useState(null) // { miembroId, link, mensaje, copiado }
 
   async function handleExportar() {
     setExportando(true)
@@ -118,9 +120,6 @@ export default function RuedaDetail() {
       setError(error.message)
       return
     }
-    if (data?.id) {
-      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: data.id }).then(null, () => {})
-    }
     setNuevo({ nombre: '', telefono: '' })
     setShowAdd(false)
     loadAll()
@@ -174,11 +173,35 @@ export default function RuedaDetail() {
       alert('Error al guardar: ' + error.message)
       return
     }
-    if (editMiembro.telefono) {
-      supabase.rpc('vincular_nuevo_miembro', { p_miembro_id: editandoMiembroId }).then(null, () => {})
-    }
     setEditandoMiembroId(null)
     loadAll()
+  }
+
+  // Opción B: invitación personal de un solo uso (válida 14 días).
+  async function invitar(m) {
+    setInvitandoId(m.id)
+    const { data: token, error } = await supabase.rpc('crear_invitacion', { p_miembro_id: m.id })
+    setInvitandoId(null)
+    if (error) {
+      alert('No se pudo crear la invitación: ' + error.message)
+      return
+    }
+    const link = `${window.location.origin}/unirme/${token}`
+    const mensaje = `Hola ${m.nombre.split(' ')[0]}! Te invito a la rueda "${rueda.nombre}" en La Rueda. Entrá con este link para ver tus aportes y los sorteos: ${link} (es personal y se usa una sola vez, no lo reenvíes).`
+    setInvitacion({ miembroId: m.id, link, mensaje, copiado: false })
+  }
+
+  async function copiarInvitacion() {
+    await navigator.clipboard.writeText(invitacion.mensaje)
+    setInvitacion((i) => ({ ...i, copiado: true }))
+  }
+
+  async function desvincular(m) {
+    if (!confirm(`¿Desvincular la cuenta de ${m.nombre}? Deja de ver la rueda hasta que acepte una nueva invitación.`))
+      return
+    const { error } = await supabase.from('rueda_miembros').update({ usuario_id: null }).eq('id', m.id)
+    if (error) alert('Error al desvincular: ' + error.message)
+    else loadAll()
   }
 
   async function handleQuitar(miembroId) {
@@ -493,7 +516,8 @@ export default function RuedaDetail() {
                   </button>
                 </form>
               ) : (
-                <div className="flex items-center justify-between">
+                <>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <p className="text-ink font-medium">{m.nombre}</p>
                     <p className="text-xs text-muted">
@@ -501,7 +525,21 @@ export default function RuedaDetail() {
                       {m.usuario_id && <span className="text-primary"> · con cuenta vinculada</span>}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {puedeGestionar && !m.usuario_id && m.estado !== 'retirado' && (
+                      <button
+                        onClick={() => invitar(m)}
+                        disabled={invitandoId === m.id}
+                        className="text-xs text-primary hover:underline disabled:opacity-60 no-print"
+                      >
+                        {invitandoId === m.id ? 'Generando...' : 'Invitar'}
+                      </button>
+                    )}
+                    {puedeGestionar && m.usuario_id && m.usuario_id !== user.id && (
+                      <button onClick={() => desvincular(m)} className="text-xs text-muted hover:underline no-print">
+                        Desvincular
+                      </button>
+                    )}
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
                         m.estado === 'activo'
@@ -540,6 +578,36 @@ export default function RuedaDetail() {
                     )}
                   </div>
                 </div>
+                {invitacion?.miembroId === m.id && (
+                  <div className="mt-3 bg-gold/10 border border-gold/40 rounded-sm p-3 no-print">
+                    <p className="text-xs text-ink mb-2">
+                      Invitación lista para {m.nombre.split(' ')[0]} (válida 14 días, un solo uso). Si generás otra, esta
+                      deja de funcionar.
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {m.telefono && (
+                        <a
+                          href={buildWaLink(m.telefono, invitacion.mensaje)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs bg-primary hover:bg-primary-dark transition text-white rounded-sm px-3 py-1.5"
+                        >
+                          Enviar por WhatsApp
+                        </a>
+                      )}
+                      <button
+                        onClick={copiarInvitacion}
+                        className="text-xs border border-line rounded-sm px-3 py-1.5 text-ink hover:border-primary transition"
+                      >
+                        {invitacion.copiado ? 'Copiado ✓' : 'Copiar mensaje'}
+                      </button>
+                      <button onClick={() => setInvitacion(null)} className="text-xs text-muted hover:underline">
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </>
               )}
             </div>
           ))}
