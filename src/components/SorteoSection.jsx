@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabaseClient'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { hoyLocal } from '../lib/periodos.js'
 import RuletaSorteo from './RuletaSorteo.jsx'
+import { IconoMensaje, IconoRueda } from './Iconos.jsx'
+import { formatFecha, formatMonto } from '../lib/formato.js'
+import { describirError } from '../lib/errores.js'
+import { useAvisos } from './Avisos.jsx'
 
 export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado, refreshSignal }) {
   const [sorteos, setSorteos] = useState([])
@@ -13,7 +17,8 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   const [nuevaFecha, setNuevaFecha] = useState(rueda.fecha_sorteo || '')
   const [guardandoFecha, setGuardandoFecha] = useState(false)
   const [aportesPeriodo, setAportesPeriodo] = useState([])
-  const [resultado, setResultado] = useState(null) // { ganador, participantes, monto } mientras se anima
+  const [ceremonia, setCeremonia] = useState(false) // ruleta a pantalla completa abierta
+  const aviso = useAvisos()
 
   const UMBRAL_PAGO = 0.85
 
@@ -63,59 +68,59 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   async function realizarSorteo() {
     if (activos.length === 0) return
     if (fechaAunNoLlega) {
-      alert(`El sorteo está programado para el ${rueda.fecha_sorteo}. Todavía no llegó la fecha.`)
+      aviso.info('Todavía no es el día del sorteo', {
+        detalle: `Está programado para el ${formatFecha(rueda.fecha_sorteo)}. Si querés adelantarlo, cambiá la fecha.`
+      })
       return
     }
     if (pagoInsuficiente) {
-      alert(
-        `Todavía no se llegó al ${Math.round(UMBRAL_PAGO * 100)}% de aportes pagados (llevás ${pagados}/${contribuyentes.length}).`
-      )
+      aviso.info('Faltan pagos para sortear', {
+        detalle: `Se necesita al menos el ${Math.round(UMBRAL_PAGO * 100)}% de los aportes pagados; van ${pagados} de ${contribuyentes.length}.`
+      })
       return
     }
-    if (!confirm(`Se va a sortear entre ${activos.length} integrante(s) elegibles. ¿Confirmás?`)) return
-
-
-    setSorteando(true)
-
-    // El ganador se elige en el servidor (no se puede manipular desde el
-    // navegador). Las validaciones de arriba son solo para avisar antes.
-    const { data, error } = await supabase.rpc('realizar_sorteo', { p_rueda_id: rueda.id })
-    setSorteando(false)
-
-    if (error) {
-      alert('No se pudo realizar el sorteo: ' + error.message)
-      onActualizado()
-      return
-    }
-
-    const porId = Object.fromEntries(miembros.map((m) => [m.id, m]))
-    const ganador = porId[data.ganador_id] ?? { id: data.ganador_id, nombre: '—' }
-    const participantes = (data.participantes || []).map((id) => porId[id]).filter(Boolean)
-
-    // El resultado ya está guardado; recién ahí mostramos la ruleta animada.
-    // El resto de la pantalla se refresca al cerrar la animación.
-    setResultado({ ganador, participantes: participantes.length ? participantes : [ganador], monto: data.monto })
+    // Abre la ceremonia: la rueda con los nombres, lista para girar.
+    // El confirm() nativo queda reemplazado por el botón "Girar la rueda".
+    setCeremonia(true)
   }
 
-  async function cerrarResultado() {
-    setResultado(null)
-    await loadSorteos()
-    onActualizado()
+  // Lo llama la ruleta al tocar "Girar". El ganador se elige en el servidor
+  // (no se puede manipular desde el navegador); la rueda frena sobre él.
+  async function girarEnServidor() {
+    setSorteando(true)
+    const { data, error } = await supabase.rpc('realizar_sorteo', { p_rueda_id: rueda.id })
+    setSorteando(false)
+    if (error) {
+      const { titulo, detalle } = describirError(error, 'No se pudo sortear')
+      throw new Error(titulo === 'No se pudo sortear' ? detalle : `${titulo}. ${detalle}`)
+    }
+    return data
+  }
+
+  async function cerrarCeremonia(huboSorteo) {
+    setCeremonia(false)
+    if (huboSorteo) {
+      await loadSorteos()
+      onActualizado()
+    }
   }
 
   async function reiniciarCiclo() {
-    if (!confirm('¿Reiniciar el ciclo? Todos los integrantes vuelven a estar elegibles para el próximo sorteo.'))
-      return
+    const ok = await aviso.confirmar({
+      titulo: `¿Empezar el ciclo ${rueda.ciclo_actual + 1}?`,
+      detalle:
+        'Todos los integrantes vuelven a ser elegibles y la rueda arranca otra vez desde el período 1. El historial del ciclo actual se conserva. Esto no se puede deshacer.',
+      confirmar: `Empezar ciclo ${rueda.ciclo_actual + 1}`
+    })
+    if (!ok) return
     setReiniciando(true)
-
     const { error } = await supabase.rpc('reiniciar_ciclo', { p_rueda_id: rueda.id })
     setReiniciando(false)
-
     if (error) {
-      alert('Error al reiniciar: ' + error.message)
+      aviso.error(error, 'No se pudo empezar el nuevo ciclo')
       return
     }
-
+    aviso.exito(`Empezó el ciclo ${rueda.ciclo_actual + 1}`, { detalle: 'Generá los aportes del período 1 para arrancar.' })
     onActualizado()
   }
 
@@ -125,10 +130,11 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
     const { error } = await supabase.from('ruedas').update({ fecha_sorteo: nuevaFecha || null }).eq('id', rueda.id)
     setGuardandoFecha(false)
     if (error) {
-      alert('Error al guardar la fecha: ' + error.message)
+      aviso.error(error, 'No se pudo guardar la fecha')
       return
     }
     setEditandoFecha(false)
+    aviso.exito(nuevaFecha ? `Sorteo programado para el ${formatFecha(nuevaFecha)}` : 'Se quitó la fecha del sorteo')
     onActualizado()
   }
 
@@ -160,30 +166,47 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
           )}
         </div>
       ) : yaSorteadoEstePeriodo ? (
-        <div className="bg-surface border border-line rounded-lg p-5 mb-4">
-          <p className="text-xs text-muted uppercase tracking-wide mb-1">Ganador del período {rueda.periodo_actual}</p>
-          <p className="font-display text-lg text-ink">{nombreDe(ultimoGanador.ganador_id)}</p>
-          <p className="text-sm font-mono text-muted mt-1">
-            Gs. {Number(ultimoGanador.monto_entregado).toLocaleString('es-PY')}
-          </p>
-          {esAdmin &&
-            (() => {
-              const ganador = miembros.find((m) => m.id === ultimoGanador.ganador_id)
-              if (!ganador?.telefono) return null
-              const msg = `Hola ${ganador.nombre.split(' ')[0]}! Salió tu número en la rueda "${rueda.nombre}". Te corresponde Gs. ${Number(
-                ultimoGanador.monto_entregado
-              ).toLocaleString('es-PY')}. ¡Felicitaciones!`
-              return (
-                <a
-                  href={buildWaLink(ganador.telefono, msg)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block mt-3 text-sm bg-primary hover:bg-primary-dark transition text-white rounded-sm px-4 py-2 no-print"
-                >
-                  Avisar al ganador por WhatsApp
-                </a>
-              )
-            })()}
+        <div className="bg-surface border border-line rounded-lg p-5 mb-4 flex items-start gap-4">
+          <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-10 h-10 rounded-full bg-gold/15 text-gold">
+            <IconoRueda width={20} height={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-xl text-ink leading-tight">{nombreDe(ultimoGanador.ganador_id)}</p>
+            <p className="text-sm text-muted mt-1">
+              Ganó el período {rueda.periodo_actual} ·{' '}
+              <span className="font-mono text-ink">{formatMonto(ultimoGanador.monto_entregado, rueda.moneda)}</span> ·{' '}
+              {formatFecha(ultimoGanador.fecha)}
+            </p>
+            {ultimoGanador.semilla && ultimoGanador.participantes && (
+              <p
+                className="text-xs text-muted mt-2"
+                title="El ganador es el participante número (semilla en hexadecimal mod cantidad) + 1, con los participantes ordenados por id."
+              >
+                Sorteo verificable · semilla <span className="font-mono">{ultimoGanador.semilla}</span> ·{' '}
+                {ultimoGanador.participantes.length} participantes
+              </p>
+            )}
+            {esAdmin &&
+              (() => {
+                const ganador = miembros.find((m) => m.id === ultimoGanador.ganador_id)
+                if (!ganador?.telefono) return null
+                const msg = `Hola ${ganador.nombre.split(' ')[0]}! Salió tu número en la rueda "${rueda.nombre}". Te corresponde ${formatMonto(
+                  ultimoGanador.monto_entregado,
+                  rueda.moneda
+                )}. ¡Felicitaciones!`
+                return (
+                  <a
+                    href={buildWaLink(ganador.telefono, msg)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 mt-3 text-sm bg-primary hover:bg-primary-dark transition text-white rounded-sm px-4 py-2 no-print"
+                  >
+                    <IconoMensaje width={16} height={16} />
+                    Avisar al ganador por WhatsApp
+                  </a>
+                )
+              })()}
+          </div>
         </div>
       ) : (
         esAdmin && (
@@ -197,7 +220,8 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
                 <span className="text-muted">
                   {rueda.fecha_sorteo ? (
                     <>
-                      Sorteo programado para <span className="text-ink font-medium">{rueda.fecha_sorteo}</span>
+                      Sorteo programado para{' '}
+                      <span className="text-ink font-medium">{formatFecha(rueda.fecha_sorteo)}</span>
                     </>
                   ) : (
                     'Sin fecha programada todavía'
@@ -241,18 +265,19 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
             <button
               onClick={realizarSorteo}
               disabled={sorteando || activos.length === 0 || fechaAunNoLlega || pagoInsuficiente}
-              title={fechaAunNoLlega ? `Disponible a partir del ${rueda.fecha_sorteo}` : undefined}
-              className="bg-gold hover:opacity-90 transition text-ink font-medium text-sm rounded-sm px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed no-print"
+              title={fechaAunNoLlega ? `Disponible a partir del ${formatFecha(rueda.fecha_sorteo)}` : undefined}
+              className="inline-flex items-center gap-2 bg-gold hover:bg-gold-light transition-colors text-ink font-semibold text-sm rounded-sm px-5 py-2.5 shadow-[0_6px_16px_-8px_rgba(201,150,43,0.9)] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed no-print"
             >
+              {!sorteando && !fechaAunNoLlega && aportesGenerados && !pagoInsuficiente && <IconoRueda />}
               {sorteando
                 ? 'Sorteando...'
                 : fechaAunNoLlega
-                ? `Disponible el ${rueda.fecha_sorteo}`
+                ? `Disponible el ${formatFecha(rueda.fecha_sorteo)}`
                 : !aportesGenerados
                 ? 'Generá los aportes primero'
                 : pagoInsuficiente
                 ? `Faltan pagos (${pagados}/${contribuyentes.length})`
-                : '🎲 Realizar sorteo'}
+                : 'Realizar sorteo'}
             </button>
 
             {aportesGenerados && (
@@ -276,8 +301,8 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
                   <span className="text-muted"> · ciclo {s.ciclo}, período {s.periodo}</span>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-ink">Gs. {Number(s.monto_entregado).toLocaleString('es-PY')}</p>
-                  <p className="text-xs text-muted">{s.fecha}</p>
+                  <p className="font-mono text-ink">{formatMonto(s.monto_entregado, rueda.moneda)}</p>
+                  <p className="text-xs text-muted">{formatFecha(s.fecha)}</p>
                 </div>
               </div>
             ))}
@@ -285,12 +310,14 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
         </details>
       )}
 
-      {resultado && (
+      {ceremonia && (
         <RuletaSorteo
-          participantes={resultado.participantes}
-          ganador={resultado.ganador}
-          montoEntregado={resultado.monto}
-          onFinalizar={cerrarResultado}
+          // Mismo orden que usa el servidor (por id), para que la rueda no se reacomode al llegar el resultado.
+          participantes={[...activos].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))}
+          rueda={rueda}
+          montoEstimado={rueda.monto_aporte * contribuyentes.length}
+          onGirar={girarEnServidor}
+          onCerrar={cerrarCeremonia}
         />
       )}
     </div>

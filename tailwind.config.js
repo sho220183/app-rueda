@@ -18,7 +18,8 @@ export default {
           DEFAULT: '#C9962B',
           light: '#E8C77A'
         },
-        alert: '#D65F45'
+        alert: '#D65F45',
+        crema: '#F6EFDC'
       },
       fontFamily: {
         display: ['"Fraunces"', 'serif'],

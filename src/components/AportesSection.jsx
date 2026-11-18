@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { estaVencido, hoyLocal } from '../lib/periodos.js'
 import { buildWaLink } from '../lib/whatsapp.js'
+import { formatFecha, formatMonto } from '../lib/formato.js'
+import { useAvisos } from './Avisos.jsx'
 
 export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActualizada }) {
   const [aportes, setAportes] = useState([])
@@ -13,6 +15,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
   const [pagandoId, setPagandoId] = useState(null)
   const [montoIngresado, setMontoIngresado] = useState('')
   const [guardandoPago, setGuardandoPago] = useState(false)
+  const aviso = useAvisos()
 
   const miembrosContribuyentes = miembros.filter((m) => m.estado !== 'retirado')
 
@@ -36,12 +39,18 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
   // que falten (incluye integrantes agregados después) y sugiere la fecha de sorteo.
   async function generarAportes() {
     setGenerando(true)
-    const { error } = await supabase.rpc('generar_aportes', { p_rueda_id: rueda.id })
+    const { data, error } = await supabase.rpc('generar_aportes', { p_rueda_id: rueda.id })
     setGenerando(false)
-    if (!error) {
-      onRuedaActualizada()
-      loadAportes()
-    } else alert('Error al generar aportes: ' + error.message)
+    if (error) {
+      aviso.error(error, 'No se pudieron generar los aportes')
+      return
+    }
+    aviso.exito(
+      data === 1 ? 'Se generó 1 aporte' : `Se generaron ${data} aportes`,
+      { detalle: `Período ${rueda.periodo_actual} del ciclo ${rueda.ciclo_actual}.` }
+    )
+    onRuedaActualizada()
+    loadAportes()
   }
 
   function abrirPago(aporte) {
@@ -50,52 +59,97 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
     setMontoIngresado(String(saldo))
   }
 
-  async function confirmarPago(aporte) {
-    const monto = Number(montoIngresado)
-    if (!monto || monto <= 0) {
-      alert('Ingresá un monto válido.')
-      return
-    }
-    setGuardandoPago(true)
-    const nuevoPagado = Number(aporte.monto_pagado || 0) + monto
-    const nuevoEstado = nuevoPagado >= Number(aporte.monto) ? 'pagado' : 'parcial'
+  const nombreDe = (aporte) => miembros.find((m) => m.id === aporte.miembro_id)?.nombre ?? 'el integrante'
+
+  // Guarda el estado de un aporte tal como estaba, para poder deshacer exacto.
+  async function restaurarAporte(previo) {
     const { error } = await supabase
       .from('aportes')
-      .update({
-        monto_pagado: nuevoPagado,
-        estado: nuevoEstado,
-        fecha_pago: hoyLocal()
-      })
-      .eq('id', aporte.id)
-    setGuardandoPago(false)
-    if (error) {
-      alert('Error al registrar el pago: ' + error.message)
-      return
-    }
-    setPagandoId(null)
+      .update({ monto_pagado: previo.monto_pagado, estado: previo.estado, fecha_pago: previo.fecha_pago })
+      .eq('id', previo.id)
+    if (error) aviso.error(error, 'No se pudo deshacer')
+    else aviso.info('Cambio deshecho')
     loadAportes()
     onRuedaActualizada()
   }
 
-  async function deshacerPago(aporteId) {
-    if (!confirm('¿Deshacer el pago registrado para este aporte?')) return
+  async function confirmarPago(aporte) {
+    const monto = Number(montoIngresado)
+    const saldo = Number(aporte.monto) - Number(aporte.monto_pagado || 0)
+    if (!monto || monto <= 0) {
+      aviso.error('Ingresá cuánto pagó', { detalle: 'El monto tiene que ser mayor a cero.' })
+      return
+    }
+    if (monto > saldo) {
+      aviso.error('El monto supera lo que falta', {
+        detalle: `A ${nombreDe(aporte).split(' ')[0]} le falta ${formatMonto(saldo, rueda.moneda)} en este período.`
+      })
+      return
+    }
+    setGuardandoPago(true)
+    const previo = { ...aporte }
+    const nuevoPagado = Number(aporte.monto_pagado || 0) + monto
+    const nuevoEstado = nuevoPagado >= Number(aporte.monto) ? 'pagado' : 'parcial'
+    const { error } = await supabase
+      .from('aportes')
+      .update({ monto_pagado: nuevoPagado, estado: nuevoEstado, fecha_pago: hoyLocal() })
+      .eq('id', aporte.id)
+    setGuardandoPago(false)
+    if (error) {
+      aviso.error(error, 'No se pudo registrar el pago')
+      return
+    }
+    setPagandoId(null)
+    aviso.exito(nuevoEstado === 'pagado' ? 'Pago registrado' : 'Abono parcial registrado', {
+      detalle:
+        nuevoEstado === 'pagado'
+          ? `${nombreDe(aporte)} · ${formatMonto(monto, rueda.moneda)}`
+          : `${nombreDe(aporte)} · falta ${formatMonto(saldo - monto, rueda.moneda)}`,
+      accion: { etiqueta: 'Deshacer', alHacer: () => restaurarAporte(previo) }
+    })
+    loadAportes()
+    onRuedaActualizada()
+  }
+
+  // Reversible: en vez de preguntar, se ofrece "Deshacer" en el aviso.
+  async function deshacerPago(aporte) {
+    const previo = { ...aporte }
     const { error } = await supabase
       .from('aportes')
       .update({ estado: 'pendiente', monto_pagado: 0, fecha_pago: null })
-      .eq('id', aporteId)
-    if (!error) {
-      loadAportes()
-      onRuedaActualizada()
+      .eq('id', aporte.id)
+    if (error) {
+      aviso.error(error, 'No se pudo anular el pago')
+      return
     }
+    aviso.info('Pago anulado', {
+      detalle: `${nombreDe(aporte)} vuelve a figurar como pendiente.`,
+      accion: { etiqueta: 'Deshacer', alHacer: () => restaurarAporte(previo) }
+    })
+    loadAportes()
+    onRuedaActualizada()
   }
 
   async function avanzarPeriodo() {
-    if (!confirm(`¿Cerrar el período ${rueda.periodo_actual} y pasar al ${rueda.periodo_actual + 1}?`)) return
+    const pendientes = aportes.filter((a) => a.estado !== 'pagado').length
+    const ok = await aviso.confirmar({
+      titulo: `¿Cerrar el período ${rueda.periodo_actual}?`,
+      detalle:
+        (pendientes > 0
+          ? `Todavía hay ${pendientes} ${pendientes === 1 ? 'aporte sin completar' : 'aportes sin completar'}; quedan en el historial. `
+          : '') + `La rueda pasa al período ${rueda.periodo_actual + 1}. Esto no se puede deshacer.`,
+      confirmar: `Pasar al período ${rueda.periodo_actual + 1}`
+    })
+    if (!ok) return
     setAvanzando(true)
     const { error } = await supabase.rpc('avanzar_periodo', { p_rueda_id: rueda.id })
     setAvanzando(false)
-    if (error) alert('No se pudo avanzar: ' + error.message)
-    else onRuedaActualizada()
+    if (error) {
+      aviso.error(error, 'No se pudo cerrar el período')
+      return
+    }
+    aviso.exito(`Empezó el período ${rueda.periodo_actual + 1}`, { detalle: 'Ya podés generar sus aportes.' })
+    onRuedaActualizada()
   }
 
   // Todos los períodos anteriores al actual, de este ciclo y de los anteriores.
@@ -124,7 +178,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
         : ''
     return `Hola ${nombre.split(' ')[0]}! Te escribo por la rueda "${rueda.nombre}". Tu aporte de Gs. ${Number(
       monto
-    ).toLocaleString('es-PY')} venció el ${vencimiento}.${detalleSaldo} ¿Podés confirmarme cuándo lo hacés? Gracias!`
+    ).toLocaleString('es-PY')} venció el ${formatFecha(vencimiento)}.${detalleSaldo} ¿Podés confirmarme cuándo lo hacés? Gracias!`
   }
 
   const ESTADO_STYLE = {
@@ -213,7 +267,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
                     <div>
                       <p className="text-ink font-medium">{miembro?.nombre ?? '—'}</p>
                       <p className="text-xs text-muted">
-                        Gs. {Number(a.monto).toLocaleString('es-PY')} · vence {a.fecha_vencimiento}
+                        Gs. {Number(a.monto).toLocaleString('es-PY')} · vence {formatFecha(a.fecha_vencimiento)}
                         {a.estado === 'parcial' && (
                           <> · abonado Gs. {Number(a.monto_pagado).toLocaleString('es-PY')}, falta Gs. {saldo.toLocaleString('es-PY')}</>
                         )}
@@ -242,8 +296,8 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
                         </button>
                       )}
                       {esAdmin && a.estado !== 'pendiente' && (
-                        <button onClick={() => deshacerPago(a.id)} className="text-xs text-muted hover:underline no-print">
-                          Deshacer
+                        <button onClick={() => deshacerPago(a)} className="text-xs text-muted hover:underline no-print">
+                          Anular pago
                         </button>
                       )}
                     </div>

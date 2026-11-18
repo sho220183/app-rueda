@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient'
 import { rutaSegura } from '../lib/periodos.js'
 import Footer from '../components/Footer.jsx'
+import { mensajeDeError } from '../lib/errores.js'
 
 const INPUT =
   'w-full border border-line rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold'
@@ -99,7 +100,7 @@ function LoginConCorreo({ next, modoInicial }) {
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, mode === 'login' ? 'No se pudo entrar' : 'No se pudo crear la cuenta'))
       return
     }
 
@@ -211,7 +212,7 @@ function LoginConTelefono({ next }) {
     })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo enviar el código'))
       return
     }
     setPaso('codigo')
@@ -228,7 +229,7 @@ function LoginConTelefono({ next }) {
     })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo verificar el código'))
       return
     }
     navigate(next, { replace: true })

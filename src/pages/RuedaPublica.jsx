@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import WheelVisual from '../components/WheelVisual.jsx'
 import CalendarioRueda from '../components/CalendarioRueda.jsx'
 import Footer from '../components/Footer.jsx'
+import { formatFecha, formatMonto } from '../lib/formato.js'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo' }
 
@@ -73,7 +74,7 @@ export default function RuedaPublica() {
       <main className="max-w-2xl mx-auto px-4 py-8">
         <h1 className="font-display text-2xl text-ink mb-1">{data.nombre}</h1>
         <p className="text-muted text-sm mb-6">
-          Aporte {data.moneda} {Number(data.monto_aporte).toLocaleString('es-PY')} · {data.frecuencia} · Ciclo{' '}
+          Aporte {formatMonto(data.monto_aporte, data.moneda)} · {data.frecuencia} · Ciclo{' '}
           {data.ciclo_actual}
         </p>
 
@@ -113,9 +114,9 @@ export default function RuedaPublica() {
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-ink">
-                      {data.moneda} {Number(s.monto_entregado).toLocaleString('es-PY')}
+                      {formatMonto(s.monto_entregado, data.moneda)}
                     </p>
-                    <p className="text-xs text-muted">{s.fecha}</p>
+                    <p className="text-xs text-muted">{formatFecha(s.fecha)}</p>
                   </div>
                 </div>
               ))}
