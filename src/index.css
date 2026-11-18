@@ -6,9 +6,18 @@ html, body {
   background-color: #EEF1EC;
   color: #14231F;
   font-family: 'Public Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.font-tabular {
+/* Superficies del navegador con la paleta de la app */
+html {
+  scrollbar-color: #B9C4BC #EEF1EC;
+  accent-color: #1B4B43;
+}
+input, textarea, select {
+  caret-color: #1B4B43;
+}
+.font-mono, .font-tabular {
   font-variant-numeric: tabular-nums;
 }
 
@@ -34,33 +43,186 @@ html, body {
   }
 }
 
-@keyframes confetti-burst {
-  0% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.6);
-    opacity: 0;
-  }
+/* ============================================================
+   Ceremonia del sorteo
+   ============================================================ */
+
+.sorteo-escena {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 38%, rgba(47, 109, 98, 0.55), transparent 70%),
+    rgba(9, 28, 24, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: sorteo-entrar 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  color: #F6EFDC;
+}
+.sorteo-escena ::selection {
+  background-color: #E8C77A;
+  color: #0F332C;
 }
 
-@keyframes ganador-pop {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.12);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+@keyframes sorteo-entrar {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes pin-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(3px); }
+.sorteo-rueda {
+  position: relative;
+  width: min(80vw, 360px);
+  aspect-ratio: 1;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* backwards: al terminar suelta el transform, así puede achicarse al revelar. */
+  animation: sorteo-rueda-entrar 600ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.sorteo-rueda--revelada {
+  transform: translateY(-20px) scale(0.7);
+}
+@keyframes sorteo-rueda-entrar {
+  from { transform: scale(0.88) rotate(-12deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.sorteo-disco {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.65), 0 2px 0 rgba(232, 199, 122, 0.25) inset;
+  will-change: transform;
+}
+
+.sorteo-segmento {
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), fill 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sorteo-puntero {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  z-index: 2;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+}
+.sorteo-puntero svg {
+  transition: transform 110ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sorteo-centro {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 29%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle at 50% 35%, #1B4B43, #0B2621 75%);
+  border: 2px solid #C9962B;
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 6px;
+}
+
+.sorteo-boton-principal,
+.sorteo-boton-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+.sorteo-boton-principal {
+  background: #E8C77A;
+  color: #0F332C;
+  box-shadow: 0 8px 20px -10px rgba(232, 199, 122, 0.8);
+}
+.sorteo-boton-principal:hover {
+  background: #F0D594;
+}
+.sorteo-boton-principal:active {
+  transform: translateY(1px);
+}
+.sorteo-boton-secundario {
+  color: #F6EFDC;
+  border: 1px solid rgba(246, 239, 220, 0.3);
+}
+.sorteo-boton-secundario:hover {
+  background: rgba(246, 239, 220, 0.08);
+  border-color: rgba(246, 239, 220, 0.55);
+}
+.sorteo-boton-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  color: rgba(246, 239, 220, 0.8);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.sorteo-boton-icono:hover {
+  background: rgba(246, 239, 220, 0.1);
+  color: #F6EFDC;
+}
+
+.sorteo-aparecer {
+  animation: sorteo-aparecer 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes sorteo-aparecer {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* El nombre del ganador entra desde un desenfoque, como si se enfocara. */
+.sorteo-revelacion {
+  animation: sorteo-revelar 700ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+@keyframes sorteo-revelar {
+  from { opacity: 0; transform: translateY(14px); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* Papelitos que caen desde arriba después de revelar al ganador. */
+.papelito {
+  position: fixed;
+  top: -24px;
+  z-index: 1;
+  border-radius: 1px;
+  pointer-events: none;
+  animation-name: papelito-caer;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation-fill-mode: both;
+}
+@keyframes papelito-caer {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translate3d(var(--dx), 108vh, 0) rotate(var(--rot)); opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sorteo-escena,
+  .sorteo-rueda,
+  .sorteo-aparecer {
+    animation-duration: 1ms;
+  }
+  .sorteo-rueda {
+    transition: none;
+  }
+  .sorteo-revelacion {
+    animation: sorteo-aparecer-suave 300ms ease-out both;
+  }
+  .papelito {
+    display: none;
+  }
+}
+@keyframes sorteo-aparecer-suave {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { estaVencido, hoyLocal } from '../lib/periodos.js'
 import { buildWaLink } from '../lib/whatsapp.js'
+import { formatFecha } from '../lib/formato.js'
 
 export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActualizada }) {
   const [aportes, setAportes] = useState([])
@@ -124,7 +125,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
         : ''
     return `Hola ${nombre.split(' ')[0]}! Te escribo por la rueda "${rueda.nombre}". Tu aporte de Gs. ${Number(
       monto
-    ).toLocaleString('es-PY')} venció el ${vencimiento}.${detalleSaldo} ¿Podés confirmarme cuándo lo hacés? Gracias!`
+    ).toLocaleString('es-PY')} venció el ${formatFecha(vencimiento)}.${detalleSaldo} ¿Podés confirmarme cuándo lo hacés? Gracias!`
   }
 
   const ESTADO_STYLE = {
@@ -213,7 +214,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
                     <div>
                       <p className="text-ink font-medium">{miembro?.nombre ?? '—'}</p>
                       <p className="text-xs text-muted">
-                        Gs. {Number(a.monto).toLocaleString('es-PY')} · vence {a.fecha_vencimiento}
+                        Gs. {Number(a.monto).toLocaleString('es-PY')} · vence {formatFecha(a.fecha_vencimiento)}
                         {a.estado === 'parcial' && (
                           <> · abonado Gs. {Number(a.monto_pagado).toLocaleString('es-PY')}, falta Gs. {saldo.toLocaleString('es-PY')}</>
                         )}

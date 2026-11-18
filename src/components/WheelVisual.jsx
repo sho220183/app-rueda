@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { etiquetasCortas, formatMonto } from '../lib/formato.js'
 
 /**
  * Representa la rueda como un círculo con cada integrante ubicado
@@ -23,11 +24,20 @@ export default function WheelVisual({ miembros = [], montoFondo, moneda = 'PYG',
     })
   }, [miembros, radius, center])
 
-  const formatMonto = (n) =>
-    new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0)
+  const etiquetas = useMemo(() => etiquetasCortas(miembros), [miembros])
+  const resumen = miembros
+    .map((m) => `${m.nombre} (${m.estado === 'ganador' ? 'ya ganó' : m.estado === 'retirado' ? 'retirado' : 'activo'})`)
+    .join(', ')
 
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" className="max-w-md mx-auto">
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      width="100%"
+      height="100%"
+      className="max-w-md mx-auto"
+      role="img"
+      aria-label={`Rueda: fondo ${formatMonto(montoFondo, moneda)}. ${resumen}`}
+    >
       <circle
         cx={center}
         cy={center}
@@ -47,9 +57,9 @@ export default function WheelVisual({ miembros = [], montoFondo, moneda = 'PYG',
         fill="#E8C77A"
         fontFamily="'Public Sans', sans-serif"
         fontSize="10"
-        letterSpacing="1.5"
+        letterSpacing="0.3"
       >
-        FONDO ACTUAL
+        Fondo actual
       </text>
       <text
         x={center}
@@ -57,10 +67,11 @@ export default function WheelVisual({ miembros = [], montoFondo, moneda = 'PYG',
         textAnchor="middle"
         fill="#FFFFFF"
         fontFamily="'IBM Plex Mono', monospace"
-        fontSize="17"
+        // El monto tiene que entrar en el círculo central (diámetro 116): la letra se adapta al largo.
+        fontSize={Math.min(17, 98 / (formatMonto(montoFondo, moneda).length * 0.6))}
         fontWeight="600"
       >
-        {moneda} {formatMonto(montoFondo)}
+        {formatMonto(montoFondo, moneda)}
       </text>
 
       {posiciones.map((m, i) => {
@@ -94,7 +105,7 @@ export default function WheelVisual({ miembros = [], montoFondo, moneda = 'PYG',
               fontSize="13"
               fontWeight="600"
             >
-              {(m.nombre || '?').slice(0, 2).toUpperCase()}
+              {etiquetas[m.id ?? i]?.iniciales}
             </text>
             <text
               x={m.x}
@@ -104,7 +115,7 @@ export default function WheelVisual({ miembros = [], montoFondo, moneda = 'PYG',
               fontFamily="'Public Sans', sans-serif"
               fontSize="11"
             >
-              {(m.nombre || '').split(' ')[0]}
+              {etiquetas[m.id ?? i]?.corto}
             </text>
           </g>
         )
