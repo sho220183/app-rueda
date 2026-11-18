@@ -1,13 +1,22 @@
-export function calcularVencimiento(fechaInicio, frecuencia, periodo) {
-  const d = new Date(fechaInicio + 'T00:00:00')
-  const n = periodo - 1
-  if (frecuencia === 'semanal') d.setDate(d.getDate() + 7 * n)
-  else if (frecuencia === 'quincenal') d.setDate(d.getDate() + 15 * n)
-  else if (frecuencia === 'mensual') d.setMonth(d.getMonth() + n)
-  return d.toISOString().slice(0, 10)
+// Los vencimientos se calculan en el servidor (función generar_aportes),
+// de forma continua entre ciclos. Acá solo quedan utilidades de fecha.
+
+/** Fecha de hoy en la zona horaria del dispositivo, formato YYYY-MM-DD.
+ *  (toISOString() usa UTC: en Paraguay, después de las 21 h ya daba "mañana"). */
+export function hoyLocal() {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 export function estaVencido(fechaVencimiento) {
-  const hoy = new Date().toISOString().slice(0, 10)
-  return fechaVencimiento < hoy
+  return fechaVencimiento < hoyLocal()
+}
+
+/** Evita redirecciones a otros sitios: solo rutas internas como "/ruedas/123". */
+export function rutaSegura(next) {
+  if (typeof next !== 'string') return '/'
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return '/'
+  return next
 }

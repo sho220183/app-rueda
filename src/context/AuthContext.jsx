@@ -1,27 +1,27 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
+  // undefined = todavía no sabemos si hay sesión; null = no hay sesión.
+  const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
   const [profileError, setProfileError] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const userId = session?.user?.id
 
-  async function loadProfile(userId, userMeta) {
-    let { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+  const loadProfile = useCallback(async (user) => {
+    let { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
-    if (error && error.code === 'PGRST116') {
-      // No existe el perfil (el trigger no llegó a crearlo): lo creamos nosotros como respaldo.
-      const meta = userMeta || {}
+    if (!error && !data) {
+      // El trigger no llegó a crear el perfil: lo creamos como respaldo (sin rol).
+      const meta = user.user_metadata || {}
       const insertResult = await supabase
         .from('profiles')
         .insert({
-          id: userId,
-          nombre: meta.nombre || meta.email || 'Sin nombre',
-          telefono: meta.telefono || meta.phone || null,
-          rol: meta.rol || 'miembro'
+          id: user.id,
+          nombre: meta.nombre || user.email || user.phone || 'Sin nombre',
+          telefono: meta.telefono || user.phone || null
         })
         .select('*')
         .single()
@@ -33,40 +33,43 @@ export function AuthProvider({ children }) {
       console.error('No se pudo cargar el perfil:', error.message)
       setProfileError(error.message)
       setProfile(null)
-    } else {
-      setProfileError(null)
-      setProfile(data)
-      if (data?.telefono) {
-        supabase.rpc('vincular_miembro_por_telefono').then(null, () => {})
-      }
+      return
     }
-  }
+
+    // Solo vincula por teléfono si fue verificado por SMS (lo valida el servidor).
+    if (user.phone) await supabase.rpc('vincular_miembro_por_telefono')
+
+    setProfileError(null)
+    setProfile(data)
+  }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) await loadProfile(session.user.id, { ...session.user.user_metadata, email: session.user.email })
-      setLoading(false)
-    })
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session)
-      if (session?.user) {
-        await loadProfile(session.user.id, { ...session.user.user_metadata, email: session.user.email })
-      } else {
-        setProfile(null)
-        setProfileError(null)
-      }
-    })
-
+    // Importante: no hacer await de otras llamadas a Supabase dentro de este
+    // callback (puede bloquear el cliente). La carga del perfil va en otro efecto.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  async function signUp({ email, password, nombre, telefono, rol }) {
+  useEffect(() => {
+    if (!session?.user) {
+      setProfile(null)
+      setProfileError(null)
+      return
+    }
+    loadProfile(session.user)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, loadProfile])
+
+  const loading =
+    session === undefined || (!!session && !profileError && profile?.id !== session.user.id)
+
+  async function signUp({ email, password, nombre, telefono, redirectTo }) {
     return supabase.auth.signUp({
       email,
       password,
-      options: { data: { nombre, telefono, rol } }
+      options: { data: { nombre, telefono }, emailRedirectTo: redirectTo }
     })
   }
 
@@ -79,7 +82,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    session,
+    session: session ?? null,
     user: session?.user ?? null,
     profile,
     profileError,
@@ -87,9 +90,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
-    refreshProfile: () =>
-      session?.user &&
-      loadProfile(session.user.id, { ...session.user.user_metadata, email: session.user.email })
+    refreshProfile: () => session?.user && loadProfile(session.user)
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

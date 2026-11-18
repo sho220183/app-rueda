@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { calcularVencimiento, estaVencido } from '../lib/periodos.js'
+import { estaVencido, hoyLocal } from '../lib/periodos.js'
 import { buildWaLink } from '../lib/whatsapp.js'
 
 export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActualizada }) {
@@ -32,26 +32,11 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
     loadAportes()
   }, [rueda.id, rueda.ciclo_actual, rueda.periodo_actual])
 
+  // El servidor calcula el vencimiento (continuo entre ciclos), crea los aportes
+  // que falten (incluye integrantes agregados después) y sugiere la fecha de sorteo.
   async function generarAportes() {
     setGenerando(true)
-    const vencimiento = calcularVencimiento(rueda.fecha_inicio, rueda.frecuencia, rueda.periodo_actual)
-    const filas = miembrosContribuyentes.map((m) => ({
-      rueda_id: rueda.id,
-      miembro_id: m.id,
-      ciclo: rueda.ciclo_actual,
-      periodo: rueda.periodo_actual,
-      monto: rueda.monto_aporte,
-      monto_pagado: 0,
-      fecha_vencimiento: vencimiento,
-      estado: 'pendiente'
-    }))
-    const { error } = await supabase.from('aportes').insert(filas)
-
-    if (!error && !rueda.fecha_sorteo) {
-      // Sugerimos la fecha de sorteo = fecha de vencimiento del aporte; el admin la puede editar después.
-      await supabase.from('ruedas').update({ fecha_sorteo: vencimiento }).eq('id', rueda.id)
-    }
-
+    const { error } = await supabase.rpc('generar_aportes', { p_rueda_id: rueda.id })
     setGenerando(false)
     if (!error) {
       onRuedaActualizada()
@@ -79,7 +64,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
       .update({
         monto_pagado: nuevoPagado,
         estado: nuevoEstado,
-        fecha_pago: new Date().toISOString().slice(0, 10)
+        fecha_pago: hoyLocal()
       })
       .eq('id', aporte.id)
     setGuardandoPago(false)
@@ -107,21 +92,21 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
   async function avanzarPeriodo() {
     if (!confirm(`¿Cerrar el período ${rueda.periodo_actual} y pasar al ${rueda.periodo_actual + 1}?`)) return
     setAvanzando(true)
-    const { error } = await supabase
-      .from('ruedas')
-      .update({ periodo_actual: rueda.periodo_actual + 1, fecha_sorteo: null })
-      .eq('id', rueda.id)
+    const { error } = await supabase.rpc('avanzar_periodo', { p_rueda_id: rueda.id })
     setAvanzando(false)
-    if (!error) onRuedaActualizada()
+    if (error) alert('No se pudo avanzar: ' + error.message)
+    else onRuedaActualizada()
   }
 
+  // Todos los períodos anteriores al actual, de este ciclo y de los anteriores.
   async function cargarHistorial() {
+    const c = rueda.ciclo_actual
+    const p = rueda.periodo_actual
     const { data } = await supabase
       .from('aportes')
-      .select('*')
+      .select('ciclo, periodo, monto, monto_pagado')
       .eq('rueda_id', rueda.id)
-      .lt('periodo', rueda.periodo_actual)
-      .order('periodo', { ascending: false })
+      .or(`ciclo.lt.${c},and(ciclo.eq.${c},periodo.lt.${p})`)
     setHistorial(data || [])
     setVerHistorial(true)
   }
@@ -129,6 +114,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
   const totalEsperado = aportes.reduce((s, a) => s + Number(a.monto), 0)
   const totalRecaudado = aportes.reduce((s, a) => s + Number(a.monto_pagado || 0), 0)
   const yaGenerado = aportes.length > 0
+  const sinAporte = miembrosContribuyentes.filter((m) => !aportes.some((a) => a.miembro_id === m.id))
 
   function mensajeAtraso(nombre, monto, montoPagado, vencimiento) {
     const saldo = Number(monto) - Number(montoPagado || 0)
@@ -198,6 +184,21 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
               <p className="font-mono text-xl text-ink mt-1">Gs. {totalEsperado.toLocaleString('es-PY')}</p>
             </div>
           </div>
+
+          {esAdmin && sinAporte.length > 0 && (
+            <div className="bg-gold/10 border border-gold/40 rounded-lg p-3 mb-3 flex items-center justify-between gap-3 flex-wrap no-print">
+              <p className="text-sm text-ink">
+                {sinAporte.length} integrante(s) sin aporte en este período ({sinAporte.map((m) => m.nombre).join(', ')}).
+              </p>
+              <button
+                onClick={generarAportes}
+                disabled={generando}
+                className="text-xs bg-primary text-white rounded-sm px-3 py-1.5 disabled:opacity-60"
+              >
+                {generando ? 'Generando...' : 'Generar los que faltan'}
+              </button>
+            </div>
+          )}
 
           <div className="bg-surface border border-line rounded-lg divide-y divide-line">
             {aportes.map((a) => {
@@ -278,7 +279,7 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
         </>
       )}
 
-      {rueda.periodo_actual > 1 && (
+      {(rueda.periodo_actual > 1 || rueda.ciclo_actual > 1) && (
         <div className="mt-3">
           {!verHistorial ? (
             <button onClick={cargarHistorial} className="text-xs text-muted hover:text-primary">
@@ -289,17 +290,19 @@ export default function AportesSection({ rueda, miembros, esAdmin, onRuedaActual
               <p className="text-xs text-muted uppercase tracking-wide mb-2">Historial</p>
               {Object.entries(
                 historial.reduce((acc, a) => {
-                  acc[a.periodo] = acc[a.periodo] || { total: 0, pagado: 0, count: 0 }
-                  acc[a.periodo].total += Number(a.monto)
-                  acc[a.periodo].count += 1
-                  acc[a.periodo].pagado += Number(a.monto_pagado || 0)
+                  const clave = `${a.ciclo}-${a.periodo}`
+                  acc[clave] = acc[clave] || { ciclo: a.ciclo, periodo: a.periodo, total: 0, pagado: 0 }
+                  acc[clave].total += Number(a.monto)
+                  acc[clave].pagado += Number(a.monto_pagado || 0)
                   return acc
                 }, {})
               )
-                .sort((a, b) => b[0] - a[0])
-                .map(([periodo, r]) => (
-                  <div key={periodo} className="flex justify-between text-sm py-1">
-                    <span className="text-ink">Período {periodo}</span>
+                .sort(([, a], [, b]) => b.ciclo - a.ciclo || b.periodo - a.periodo)
+                .map(([clave, r]) => (
+                  <div key={clave} className="flex justify-between text-sm py-1">
+                    <span className="text-ink">
+                      Ciclo {r.ciclo} · Período {r.periodo}
+                    </span>
                     <span className="font-mono text-muted">
                       Gs. {r.pagado.toLocaleString('es-PY')} / {r.total.toLocaleString('es-PY')}
                     </span>
