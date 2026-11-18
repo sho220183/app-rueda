@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { supabase } from './supabaseClient'
+import { guardarArchivo } from './plataforma.js'
 
 export async function exportarRuedaExcel(rueda) {
   const [{ data: miembros }, { data: aportes }, { data: sorteos }] = await Promise.all([
@@ -43,5 +44,7 @@ export async function exportarRuedaExcel(rueda) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaSorteos), 'Sorteos')
 
   const nombreArchivo = `${rueda.nombre.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}-reporte.xlsx`
-  XLSX.writeFile(wb, nombreArchivo)
+  // En la web se descarga; en la app se abre el menú de compartir.
+  const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' })
+  await guardarArchivo(nombreArchivo, base64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 }

@@ -392,3 +392,32 @@ input, textarea, select {
   }
   .aviso--saliendo, .hoja--saliendo { animation-name: hoja-fondo-salir; }
 }
+
+/* ============================================================
+   App nativa (Capacitor): clase "nativo" en <html>
+   ============================================================ */
+html.nativo {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+html.nativo body {
+  /* Zonas seguras (notch, barra de gestos) cuando el WebView ocupa toda la pantalla. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+html.nativo .sorteo-escena {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+html.nativo footer {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+/* Los textos de la interfaz no se seleccionan con un toque largo; los campos sí. */
+html.nativo button,
+html.nativo a,
+html.nativo header,
+html.nativo nav {
+  -webkit-user-select: none;
+  user-select: none;
+}

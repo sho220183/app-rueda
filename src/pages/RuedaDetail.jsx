@@ -11,7 +11,7 @@ import AdminSecundario from '../components/AdminSecundario.jsx'
 import Footer from '../components/Footer.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { exportarRuedaExcel } from '../lib/exportExcel.js'
-import { copiarTexto } from '../lib/plataforma.js'
+import { copiarTexto, esNativo, urlPublica } from '../lib/plataforma.js'
 import { mensajeDeError } from '../lib/errores.js'
 import { formatMonto } from '../lib/formato.js'
 import { useAvisos } from '../components/Avisos.jsx'
@@ -46,9 +46,10 @@ export default function RuedaDetail() {
     setExportando(true)
     try {
       await exportarRuedaExcel(rueda)
-      aviso.exito('Reporte descargado', { detalle: 'Integrantes, aportes y sorteos en un archivo de Excel.' })
+      if (!esNativo) aviso.exito('Reporte descargado', { detalle: 'Integrantes, aportes y sorteos en un archivo de Excel.' })
     } catch (e) {
-      aviso.error(e, 'No se pudo generar el reporte')
+      // Cerrar el menú de compartir sin elegir nada no es un error.
+      if (!/cancel/i.test(e?.message || '')) aviso.error(e, 'No se pudo generar el reporte')
     }
     setExportando(false)
   }
@@ -58,7 +59,7 @@ export default function RuedaDetail() {
   const esAdmin = esPrincipal || esCoadmin
   const ruedaActiva = rueda?.estado === 'activa'
   const puedeGestionar = esAdmin && ruedaActiva
-  const linkPublico = rueda ? `${window.location.origin}/publico/${rueda.token}` : ''
+  const linkPublico = rueda ? urlPublica(`/publico/${rueda.token}`) : ''
 
   function mensajeRecordatorio(nombre) {
     return `Hola ${nombre.split(' ')[0]}! Te escribo por la rueda "${rueda.nombre}". Te recuerdo tu aporte de ${formatMonto(
@@ -200,7 +201,7 @@ export default function RuedaDetail() {
       aviso.error(error, 'No se pudo crear la invitación')
       return
     }
-    const link = `${window.location.origin}/unirme/${token}`
+    const link = urlPublica(`/unirme/${token}`)
     const mensaje = `Hola ${m.nombre.split(' ')[0]}! Te invito a la rueda "${rueda.nombre}" en La Rueda. Entrá con este link para ver tus aportes y los sorteos: ${link} (es personal y se usa una sola vez, no lo reenvíes).`
     setInvitacion({ miembroId: m.id, link, mensaje })
   }
@@ -320,19 +321,22 @@ export default function RuedaDetail() {
             ← Volver a mis ruedas
           </Link>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition"
-            >
-              Imprimir / PDF
-            </button>
+            {/* En el celular no hay impresión: el reporte se comparte como Excel. */}
+            {!esNativo && (
+              <button
+                onClick={() => window.print()}
+                className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition"
+              >
+                Imprimir / PDF
+              </button>
+            )}
             {esAdmin && (
               <button
                 onClick={handleExportar}
                 disabled={exportando}
                 className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition disabled:opacity-60"
               >
-                {exportando ? 'Generando...' : 'Exportar a Excel'}
+                {exportando ? 'Generando...' : esNativo ? 'Compartir Excel' : 'Exportar a Excel'}
               </button>
             )}
           </div>
