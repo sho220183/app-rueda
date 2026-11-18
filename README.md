@@ -35,7 +35,11 @@ Qué hace:
 - El rol ya no se elige al registrarse: quien crea una rueda la administra.
 - Invitaciones personales de un solo uso (`/unirme/<token>`, válidas 14 días).
 
-Al final del archivo hay una consulta comentada para revisar integrantes que
+Después ejecutá también **`supabase/003_ajustes_advisors.sql`** (ajustes del Security Advisor de Supabase).
+
+Pruebas de la base: `npm run test:db` (Postgres embebido, no toca tu proyecto).
+
+Al final del archivo 002 hay una consulta comentada para revisar integrantes que
 quedaron vinculados con un teléfono no verificado.
 
 ## 2. Configurar el proyecto local

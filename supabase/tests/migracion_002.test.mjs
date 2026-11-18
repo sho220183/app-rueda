@@ -26,7 +26,9 @@ await db.exec(fs.readFileSync(`${repo}/supabase/schema.sql`, 'utf8').replace('cr
 await db.exec(`grant all on all tables in schema public to anon, authenticated;`)
 await db.exec(fs.readFileSync(`${repo}/supabase/002_seguridad_sorteo_invitaciones.sql`, 'utf8'))
 await db.exec(fs.readFileSync(`${repo}/supabase/002_seguridad_sorteo_invitaciones.sql`, 'utf8'))
-console.log('Migración 002 aplicada DOS veces sin errores\n')
+await db.exec(fs.readFileSync(`${repo}/supabase/003_ajustes_advisors.sql`, 'utf8'))
+await db.exec(fs.readFileSync(`${repo}/supabase/003_ajustes_advisors.sql`, 'utf8'))
+console.log('Migraciones 002 y 003 aplicadas DOS veces sin errores\n')
 
 async function as(uid, sql, params) {
   await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${uid ?? ''}', false); set role ${uid ? 'authenticated' : 'anon'};`)
@@ -174,6 +176,12 @@ check(!!(await as(C, `select public.aceptar_invitacion($1)`, [tok])).error, 'El 
 check(!!(await as(A, `select public.crear_invitacion($1)`, [M2])).error, 'No se invita a un lugar ya vinculado')
 r = await as(X, `select count(*)::int n from rueda_miembros where rueda_id=$1`, [RID])
 check(r.rows?.[0]?.n === 4, 'El invitado ve a los integrantes de su rueda')
+r = await as(X, `select count(*)::int n from ruedas where id=$1`, [RID])
+check(r.rows?.[0]?.n === 1, 'El invitado ve la rueda (policy con rueda_ids_del_usuario)')
+r = await as(C, `select count(*)::int n from public.rueda_ids_del_usuario($1)`, [X])
+check(r.rows?.[0]?.n === 0, 'Nadie puede consultar las ruedas de OTRA persona')
+r = await as(null, `select public.quitar_coadmin($1)`, [RID])
+check(!!r.error, 'Sin sesión no se puede llamar quitar_coadmin')
 r = await as(A, `update rueda_miembros set usuario_id=null where id=$1`, [M2])
 check(!r.error && r.affected === 1, 'Admin puede desvincular')
 const t1 = (await as(A, `select public.crear_invitacion($1) t`, [M3])).rows[0].t
