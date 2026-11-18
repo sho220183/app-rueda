@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { rutaSegura } from '../lib/periodos.js'
 import Footer from '../components/Footer.jsx'
 import { mensajeDeError } from '../lib/errores.js'
+import { urlPublica } from '../lib/plataforma.js'
 
 const INPUT =
   'w-full border border-line rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold'
@@ -95,7 +96,7 @@ function LoginConCorreo({ next, modoInicial }) {
     const { data, error } =
       mode === 'login'
         ? await signIn({ email: form.email, password: form.password })
-        : await signUp({ ...form, redirectTo: window.location.origin + next })
+        : await signUp({ ...form, redirectTo: urlPublica(next) })
 
     setLoading(false)
 

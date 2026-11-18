@@ -275,7 +275,7 @@ export function AvisosProvider({ children }) {
       duracion: opciones.duracion ?? DURACION[tipo]
     }
     setAvisos((lista) => [...lista, aviso].slice(-MAXIMO_VISIBLES))
-    if (tipo === 'error') vibrar([20, 60, 20])
+    if (tipo === 'error') vibrar('error')
     return id
   }, [])
 

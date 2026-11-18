@@ -1,4 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, useNavigate } from 'react-router-dom'
+import { instalarNativo } from './lib/plataforma.js'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
@@ -36,6 +38,13 @@ function Home() {
 }
 
 export default function App() {
+  const navigate = useNavigate()
+  // Dentro de la app móvil: botón atrás, barra de estado, links externos y deep links.
+  useEffect(() => {
+    instalarNativo(navigate)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

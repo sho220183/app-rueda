@@ -1,0 +1,29 @@
+{
+  "appId": "py.net.jcginfotech.larueda",
+  "appName": "La Rueda",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#EEF1EC"
+  },
+  "ios": {
+    "backgroundColor": "#EEF1EC",
+    "contentInset": "never"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#1B4B43",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#EEF1EC",
+      "overlaysWebView": false
+    }
+  }
+}
