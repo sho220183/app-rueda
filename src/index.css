@@ -226,3 +226,169 @@ input, textarea, select {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ============================================================
+   Avisos (toasts) y hoja de confirmación — pensados para celular
+   ============================================================ */
+
+.avisos-pila {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 70;
+  width: min(100% - 24px, 26rem);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.aviso {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 8px 12px 14px;
+  border-radius: 12px;
+  background: #14231F;
+  color: #FFFFFF;
+  box-shadow: 0 12px 32px -12px rgba(15, 51, 44, 0.55), 0 2px 6px rgba(15, 51, 44, 0.2);
+  touch-action: pan-y;
+  user-select: none;
+  animation: aviso-entrar 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease;
+}
+.aviso--saliendo {
+  animation: aviso-salir 170ms ease-in forwards;
+}
+@keyframes aviso-entrar {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes aviso-salir {
+  to { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
+.aviso-accion {
+  align-self: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: #E8C77A;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.aviso-accion:hover {
+  background: rgba(232, 199, 122, 0.12);
+}
+.aviso-cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.aviso-cerrar:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hoja-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(20, 35, 31, 0.5);
+  animation: hoja-fondo-entrar 200ms ease-out both;
+}
+.hoja-fondo--saliendo {
+  animation: hoja-fondo-salir 170ms ease-in forwards;
+}
+@keyframes hoja-fondo-entrar { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hoja-fondo-salir { to { opacity: 0; } }
+
+/* Celular: hoja que sube desde abajo, con la zona segura respetada. */
+.hoja {
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #FFFFFF;
+  border-radius: 20px 20px 0 0;
+  padding: 8px 20px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 40px -16px rgba(15, 51, 44, 0.45);
+  animation: hoja-subir 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hoja--saliendo {
+  animation: hoja-bajar 170ms ease-in forwards;
+}
+@keyframes hoja-subir { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes hoja-bajar { to { transform: translateY(100%); } }
+
+.hoja-agarre {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 14px;
+  margin: 0 -20px;
+  cursor: grab;
+  touch-action: none;
+}
+.hoja-agarre span {
+  width: 40px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #DCE1DA;
+}
+
+/* Pantallas grandes: diálogo centrado. */
+@media (min-width: 640px) {
+  .hoja-fondo {
+    align-items: center;
+    padding: 24px;
+  }
+  .hoja {
+    max-width: 26rem;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 24px 60px -20px rgba(15, 51, 44, 0.5);
+    animation: hoja-aparecer 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hoja--saliendo {
+    animation: hoja-desaparecer 150ms ease-in forwards;
+  }
+}
+@keyframes hoja-aparecer { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes hoja-desaparecer { to { opacity: 0; transform: scale(0.97); } }
+
+.hoja-boton {
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+@media (min-width: 640px) {
+  .hoja-boton { min-height: 42px; }
+}
+.hoja-boton--principal { background: #1B4B43; color: #FFFFFF; }
+.hoja-boton--principal:hover { background: #0F332C; }
+.hoja-boton--peligro { background: #B9472F; color: #FFFFFF; }
+.hoja-boton--peligro:hover { background: #9E3B26; }
+.hoja-boton--secundario { border: 1px solid #DCE1DA; color: #14231F; }
+.hoja-boton--secundario:hover { border-color: #1B4B43; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso, .aviso--saliendo, .hoja, .hoja--saliendo {
+    animation-name: hoja-fondo-entrar;
+    animation-duration: 150ms;
+  }
+  .aviso--saliendo, .hoja--saliendo { animation-name: hoja-fondo-salir; }
+}

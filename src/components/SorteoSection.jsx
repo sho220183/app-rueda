@@ -5,6 +5,8 @@ import { hoyLocal } from '../lib/periodos.js'
 import RuletaSorteo from './RuletaSorteo.jsx'
 import { IconoMensaje, IconoRueda } from './Iconos.jsx'
 import { formatFecha, formatMonto } from '../lib/formato.js'
+import { describirError } from '../lib/errores.js'
+import { useAvisos } from './Avisos.jsx'
 
 export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado, refreshSignal }) {
   const [sorteos, setSorteos] = useState([])
@@ -16,6 +18,7 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   const [guardandoFecha, setGuardandoFecha] = useState(false)
   const [aportesPeriodo, setAportesPeriodo] = useState([])
   const [ceremonia, setCeremonia] = useState(false) // ruleta a pantalla completa abierta
+  const aviso = useAvisos()
 
   const UMBRAL_PAGO = 0.85
 
@@ -65,13 +68,15 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   async function realizarSorteo() {
     if (activos.length === 0) return
     if (fechaAunNoLlega) {
-      alert(`El sorteo está programado para el ${formatFecha(rueda.fecha_sorteo)}. Todavía no llegó la fecha.`)
+      aviso.info('Todavía no es el día del sorteo', {
+        detalle: `Está programado para el ${formatFecha(rueda.fecha_sorteo)}. Si querés adelantarlo, cambiá la fecha.`
+      })
       return
     }
     if (pagoInsuficiente) {
-      alert(
-        `Todavía no se llegó al ${Math.round(UMBRAL_PAGO * 100)}% de aportes pagados (llevás ${pagados}/${contribuyentes.length}).`
-      )
+      aviso.info('Faltan pagos para sortear', {
+        detalle: `Se necesita al menos el ${Math.round(UMBRAL_PAGO * 100)}% de los aportes pagados; van ${pagados} de ${contribuyentes.length}.`
+      })
       return
     }
     // Abre la ceremonia: la rueda con los nombres, lista para girar.
@@ -85,7 +90,10 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
     setSorteando(true)
     const { data, error } = await supabase.rpc('realizar_sorteo', { p_rueda_id: rueda.id })
     setSorteando(false)
-    if (error) throw new Error(error.message)
+    if (error) {
+      const { titulo, detalle } = describirError(error, 'No se pudo sortear')
+      throw new Error(titulo === 'No se pudo sortear' ? detalle : `${titulo}. ${detalle}`)
+    }
     return data
   }
 
@@ -98,18 +106,21 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
   }
 
   async function reiniciarCiclo() {
-    if (!confirm('¿Reiniciar el ciclo? Todos los integrantes vuelven a estar elegibles para el próximo sorteo.'))
-      return
+    const ok = await aviso.confirmar({
+      titulo: `¿Empezar el ciclo ${rueda.ciclo_actual + 1}?`,
+      detalle:
+        'Todos los integrantes vuelven a ser elegibles y la rueda arranca otra vez desde el período 1. El historial del ciclo actual se conserva. Esto no se puede deshacer.',
+      confirmar: `Empezar ciclo ${rueda.ciclo_actual + 1}`
+    })
+    if (!ok) return
     setReiniciando(true)
-
     const { error } = await supabase.rpc('reiniciar_ciclo', { p_rueda_id: rueda.id })
     setReiniciando(false)
-
     if (error) {
-      alert('Error al reiniciar: ' + error.message)
+      aviso.error(error, 'No se pudo empezar el nuevo ciclo')
       return
     }
-
+    aviso.exito(`Empezó el ciclo ${rueda.ciclo_actual + 1}`, { detalle: 'Generá los aportes del período 1 para arrancar.' })
     onActualizado()
   }
 
@@ -119,10 +130,11 @@ export default function SorteoSection({ rueda, miembros, esAdmin, onActualizado,
     const { error } = await supabase.from('ruedas').update({ fecha_sorteo: nuevaFecha || null }).eq('id', rueda.id)
     setGuardandoFecha(false)
     if (error) {
-      alert('Error al guardar la fecha: ' + error.message)
+      aviso.error(error, 'No se pudo guardar la fecha')
       return
     }
     setEditandoFecha(false)
+    aviso.exito(nuevaFecha ? `Sorteo programado para el ${formatFecha(nuevaFecha)}` : 'Se quitó la fecha del sorteo')
     onActualizado()
   }
 

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext.jsx'
 import Footer from '../components/Footer.jsx'
+import { mensajeDeError } from '../lib/errores.js'
 
 // Opción B: link personal de un solo uso que el admin manda por WhatsApp.
 // Muestra a qué rueda te invitan; si no tenés sesión te manda a login
@@ -32,7 +33,7 @@ export default function Unirme() {
     const { data, error } = await supabase.rpc('aceptar_invitacion', { p_token: token })
     setAceptando(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo aceptar la invitación'))
       return
     }
     navigate(`/ruedas/${data}`, { replace: true })

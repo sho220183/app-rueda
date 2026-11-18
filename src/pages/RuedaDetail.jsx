@@ -11,6 +11,10 @@ import AdminSecundario from '../components/AdminSecundario.jsx'
 import Footer from '../components/Footer.jsx'
 import { buildWaLink } from '../lib/whatsapp.js'
 import { exportarRuedaExcel } from '../lib/exportExcel.js'
+import { copiarTexto } from '../lib/plataforma.js'
+import { mensajeDeError } from '../lib/errores.js'
+import { formatMonto } from '../lib/formato.js'
+import { useAvisos } from '../components/Avisos.jsx'
 
 const ESTADO_LABEL = { activo: 'Activo', ganador: 'Ya ganó este ciclo', retirado: 'Retirado' }
 
@@ -35,14 +39,16 @@ export default function RuedaDetail() {
   const [editMiembro, setEditMiembro] = useState({ nombre: '', telefono: '' })
   const [savingMiembro, setSavingMiembro] = useState(false)
   const [invitandoId, setInvitandoId] = useState(null)
-  const [invitacion, setInvitacion] = useState(null) // { miembroId, link, mensaje, copiado }
+  const [invitacion, setInvitacion] = useState(null) // { miembroId, link, mensaje }
+  const aviso = useAvisos()
 
   async function handleExportar() {
     setExportando(true)
     try {
       await exportarRuedaExcel(rueda)
+      aviso.exito('Reporte descargado', { detalle: 'Integrantes, aportes y sorteos en un archivo de Excel.' })
     } catch (e) {
-      alert('Error al exportar: ' + e.message)
+      aviso.error(e, 'No se pudo generar el reporte')
     }
     setExportando(false)
   }
@@ -55,15 +61,20 @@ export default function RuedaDetail() {
   const linkPublico = rueda ? `${window.location.origin}/publico/${rueda.token}` : ''
 
   function mensajeRecordatorio(nombre) {
-    return `Hola ${nombre.split(' ')[0]}! Te escribo por la rueda "${rueda.nombre}". Te recuerdo tu aporte de Gs. ${Number(
-      rueda.monto_aporte
-    ).toLocaleString('es-PY')} de este período. Podés ver el estado de la rueda acá: ${linkPublico}`
+    return `Hola ${nombre.split(' ')[0]}! Te escribo por la rueda "${rueda.nombre}". Te recuerdo tu aporte de ${formatMonto(
+      rueda.monto_aporte,
+      rueda.moneda
+    )} de este período. Podés ver el estado de la rueda acá: ${linkPublico}`
   }
 
   async function copiarLink() {
-    await navigator.clipboard.writeText(linkPublico)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
+    if (await copiarTexto(linkPublico)) {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+      aviso.exito('Link copiado', { detalle: 'Cualquiera con el link ve el estado de la rueda, sin teléfonos.' })
+    } else {
+      aviso.error('No se pudo copiar el link', { detalle: linkPublico })
+    }
   }
 
   async function loadAll() {
@@ -117,9 +128,10 @@ export default function RuedaDetail() {
       .single()
     setSaving(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo agregar al integrante'))
       return
     }
+    aviso.exito(`${nuevo.nombre} se sumó a la rueda`, { detalle: 'Tocá "Invitar" para que vea la rueda desde su celular.' })
     setNuevo({ nombre: '', telefono: '' })
     setShowAdd(false)
     loadAll()
@@ -149,10 +161,11 @@ export default function RuedaDetail() {
       .eq('id', rueda.id)
     setSavingRueda(false)
     if (error) {
-      alert('Error al guardar: ' + error.message)
+      aviso.error(error, 'No se pudieron guardar los cambios')
       return
     }
     setShowEditRueda(false)
+    aviso.exito('Cambios guardados')
     loadAll()
   }
 
@@ -170,10 +183,11 @@ export default function RuedaDetail() {
       .eq('id', editandoMiembroId)
     setSavingMiembro(false)
     if (error) {
-      alert('Error al guardar: ' + error.message)
+      aviso.error(error, 'No se pudieron guardar los datos del integrante')
       return
     }
     setEditandoMiembroId(null)
+    aviso.exito('Datos del integrante guardados')
     loadAll()
   }
 
@@ -183,55 +197,101 @@ export default function RuedaDetail() {
     const { data: token, error } = await supabase.rpc('crear_invitacion', { p_miembro_id: m.id })
     setInvitandoId(null)
     if (error) {
-      alert('No se pudo crear la invitación: ' + error.message)
+      aviso.error(error, 'No se pudo crear la invitación')
       return
     }
     const link = `${window.location.origin}/unirme/${token}`
     const mensaje = `Hola ${m.nombre.split(' ')[0]}! Te invito a la rueda "${rueda.nombre}" en La Rueda. Entrá con este link para ver tus aportes y los sorteos: ${link} (es personal y se usa una sola vez, no lo reenvíes).`
-    setInvitacion({ miembroId: m.id, link, mensaje, copiado: false })
+    setInvitacion({ miembroId: m.id, link, mensaje })
   }
 
   async function copiarInvitacion() {
-    await navigator.clipboard.writeText(invitacion.mensaje)
-    setInvitacion((i) => ({ ...i, copiado: true }))
+    if (await copiarTexto(invitacion.mensaje)) {
+      aviso.exito('Mensaje de invitación copiado', { detalle: 'Pegalo en WhatsApp o en el chat que uses con esa persona.' })
+    } else {
+      aviso.error('No se pudo copiar', { detalle: invitacion.link })
+    }
   }
 
+  // Desvincular no se puede deshacer desde acá (la persona necesita otra invitación): se confirma.
   async function desvincular(m) {
-    if (!confirm(`¿Desvincular la cuenta de ${m.nombre}? Deja de ver la rueda hasta que acepte una nueva invitación.`))
-      return
+    const ok = await aviso.confirmar({
+      titulo: `¿Desvincular la cuenta de ${m.nombre}?`,
+      detalle: 'Deja de ver la rueda en su celular. Para volver a entrar vas a tener que mandarle una invitación nueva.',
+      confirmar: 'Desvincular',
+      peligro: true
+    })
+    if (!ok) return
     const { error } = await supabase.from('rueda_miembros').update({ usuario_id: null }).eq('id', m.id)
-    if (error) alert('Error al desvincular: ' + error.message)
-    else loadAll()
+    if (error) {
+      aviso.error(error, 'No se pudo desvincular la cuenta')
+      return
+    }
+    aviso.exito(`${m.nombre} ya no tiene cuenta vinculada`)
+    loadAll()
   }
 
-  async function handleQuitar(miembroId) {
-    if (!confirm('¿Quitar a este integrante de la rueda? Sus aportes ya registrados quedan en el historial.')) return
-    const { error } = await supabase.from('rueda_miembros').update({ estado: 'retirado' }).eq('id', miembroId)
-    if (!error) loadAll()
+  async function cambiarEstadoMiembro(m, estado) {
+    const { error } = await supabase.from('rueda_miembros').update({ estado }).eq('id', m.id)
+    return error
   }
 
-  async function handleReactivar(miembroId) {
-    const { error } = await supabase.from('rueda_miembros').update({ estado: 'activo' }).eq('id', miembroId)
-    if (!error) loadAll()
+  // Quitar es reversible: en vez de preguntar, se ofrece "Deshacer".
+  async function handleQuitar(m) {
+    const error = await cambiarEstadoMiembro(m, 'retirado')
+    if (error) {
+      aviso.error(error, `No se pudo quitar a ${m.nombre}`)
+      return
+    }
+    aviso.info(`${m.nombre} salió de la rueda`, {
+      detalle: 'Sus aportes ya registrados quedan en el historial.',
+      accion: { etiqueta: 'Deshacer', alHacer: () => handleReactivar(m, true) }
+    })
+    loadAll()
+  }
+
+  async function handleReactivar(m, deshaciendo = false) {
+    // El servidor decide si vuelve como activo o como "ya ganó este ciclo".
+    const error = await cambiarEstadoMiembro(m, 'activo')
+    if (error) {
+      aviso.error(error, `No se pudo reactivar a ${m.nombre}`)
+      return
+    }
+    aviso.exito(deshaciendo ? `${m.nombre} sigue en la rueda` : `${m.nombre} volvió a la rueda`)
+    loadAll()
   }
 
   async function cerrarRueda() {
-    if (
-      !confirm(
-        '¿Cerrar esta rueda? No se van a poder generar más aportes ni sorteos, pero todo el historial queda disponible para consulta y exportación.'
-      )
-    )
-      return
+    const ok = await aviso.confirmar({
+      titulo: `¿Cerrar "${rueda.nombre}"?`,
+      detalle:
+        'No se van a poder generar aportes ni hacer sorteos. Todo el historial queda disponible para consultar y exportar, y podés reabrirla cuando quieras.',
+      confirmar: 'Cerrar rueda',
+      peligro: true
+    })
+    if (!ok) return
     const { error } = await supabase.from('ruedas').update({ estado: 'finalizada' }).eq('id', rueda.id)
-    if (!error) loadAll()
+    if (error) {
+      aviso.error(error, 'No se pudo cerrar la rueda')
+      return
+    }
+    aviso.info('Rueda cerrada', { accion: { etiqueta: 'Reabrir', alHacer: reabrirRueda } })
+    loadAll()
   }
 
   async function reabrirRueda() {
     const { error } = await supabase.from('ruedas').update({ estado: 'activa' }).eq('id', rueda.id)
-    if (!error) loadAll()
+    if (error) {
+      aviso.error(error, 'No se pudo reabrir la rueda')
+      return
+    }
+    aviso.exito('Rueda reabierta', { detalle: 'Ya podés volver a generar aportes y sortear.' })
+    loadAll()
   }
 
-  if (loading) {
+  // Solo la primera carga muestra la pantalla de espera; las recargas
+  // posteriores actualizan en el lugar, sin parpadeo.
+  if (loading && !rueda) {
     return (
       <div className="min-h-screen bg-bg font-body flex items-center justify-center text-muted">
         Cargando rueda...
@@ -409,7 +469,7 @@ export default function RuedaDetail() {
                 onClick={copiarLink}
                 className="text-sm border border-line rounded-sm px-3 py-2 text-ink hover:border-primary transition"
               >
-                {copiado ? 'Copiado ✓' : 'Copiar link'}
+                {copiado ? 'Copiado' : 'Copiar link'}
               </button>
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(`Mirá el estado de la rueda "${rueda.nombre}" acá: ${linkPublico}`)}`}
@@ -567,12 +627,12 @@ export default function RuedaDetail() {
                       </button>
                     )}
                     {puedeGestionar && m.estado !== 'retirado' && (
-                      <button onClick={() => handleQuitar(m.id)} className="text-xs text-alert hover:underline no-print">
+                      <button onClick={() => handleQuitar(m)} className="text-xs text-alert hover:underline no-print">
                         Quitar
                       </button>
                     )}
                     {puedeGestionar && m.estado === 'retirado' && (
-                      <button onClick={() => handleReactivar(m.id)} className="text-xs text-primary hover:underline no-print">
+                      <button onClick={() => handleReactivar(m)} className="text-xs text-primary hover:underline no-print">
                         Reactivar
                       </button>
                     )}
@@ -599,7 +659,7 @@ export default function RuedaDetail() {
                         onClick={copiarInvitacion}
                         className="text-xs border border-line rounded-sm px-3 py-1.5 text-ink hover:border-primary transition"
                       >
-                        {invitacion.copiado ? 'Copiado ✓' : 'Copiar mensaje'}
+                        Copiar mensaje
                       </button>
                       <button onClick={() => setInvitacion(null)} className="text-xs text-muted hover:underline">
                         Cerrar

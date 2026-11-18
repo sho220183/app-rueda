@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext.jsx'
 import { hoyLocal } from '../lib/periodos.js'
+import { mensajeDeError } from '../lib/errores.js'
+import { useAvisos } from '../components/Avisos.jsx'
 import TopBar from '../components/TopBar.jsx'
 import Footer from '../components/Footer.jsx'
 
@@ -31,6 +33,7 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [duplicando, setDuplicando] = useState(null)
+  const aviso = useAvisos()
 
   async function load() {
     setLoading(true)
@@ -68,9 +71,10 @@ export default function Dashboard() {
     })
     setSaving(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo crear la rueda'))
       return
     }
+    aviso.exito(`Creaste "${form.nombre}"`, { detalle: 'Entrá a la rueda para sumar a los integrantes.' })
     setShowForm(false)
     setForm(formVacio())
     load()
@@ -93,9 +97,10 @@ export default function Dashboard() {
       .single()
     setDuplicando(null)
     if (error) {
-      alert('Error al duplicar: ' + error.message)
+      aviso.error(error, 'No se pudo duplicar la rueda')
       return
     }
+    aviso.exito(`Se creó "${r.nombre} (copia)"`, { detalle: 'Con el mismo monto y frecuencia; los integrantes se cargan aparte.' })
     navigate(`/ruedas/${data.id}`)
   }
 

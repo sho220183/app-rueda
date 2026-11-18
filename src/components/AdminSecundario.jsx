@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { mensajeDeError } from '../lib/errores.js'
+import { useAvisos } from './Avisos.jsx'
 
 export default function AdminSecundario({ rueda, onActualizado }) {
   const [nombreCoadmin, setNombreCoadmin] = useState(null)
@@ -7,6 +9,7 @@ export default function AdminSecundario({ rueda, onActualizado }) {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [editando, setEditando] = useState(false)
+  const aviso = useAvisos()
 
   useEffect(() => {
     async function load() {
@@ -30,18 +33,30 @@ export default function AdminSecundario({ rueda, onActualizado }) {
     })
     setGuardando(false)
     if (error) {
-      setError(error.message)
+      setError(mensajeDeError(error, 'No se pudo asignar el co-administrador'))
       return
     }
     setIdentificador('')
     setEditando(false)
+    aviso.exito('Co-administrador asignado', { detalle: 'Ya puede registrar pagos, generar aportes y sortear.' })
     onActualizado()
   }
 
   async function quitar() {
-    if (!confirm('¿Quitar a este co-administrador? Ya no va a poder gestionar la rueda.')) return
+    const ok = await aviso.confirmar({
+      titulo: `¿Quitar a ${nombreCoadmin} como co-administrador?`,
+      detalle: 'Ya no va a poder gestionar la rueda. Podés volver a asignarlo después con su correo o teléfono.',
+      confirmar: 'Quitar co-administrador',
+      peligro: true
+    })
+    if (!ok) return
     const { error } = await supabase.rpc('quitar_coadmin', { p_rueda_id: rueda.id })
-    if (!error) onActualizado()
+    if (error) {
+      aviso.error(error, 'No se pudo quitar al co-administrador')
+      return
+    }
+    aviso.exito(`${nombreCoadmin} ya no es co-administrador`)
+    onActualizado()
   }
 
   return (
