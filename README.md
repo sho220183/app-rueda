@@ -146,3 +146,37 @@ Este proyecto es un sitio estático (Vite + React), igual que la landing de
 JCG Infotech. Se puede desplegar en Netlify: `npm run build` genera la carpeta
 `dist/`, y hay que cargar las mismas variables de entorno (`VITE_SUPABASE_URL`,
 `VITE_SUPABASE_ANON_KEY`) en la configuración de Netlify.
+
+## App móvil (Capacitor)
+
+La misma app web se empaqueta como app nativa con [Capacitor](https://capacitorjs.com) 8.
+El código que toca el dispositivo (portapapeles, WhatsApp, vibración, compartir
+archivos, botón atrás, links que abren la app) está en `src/lib/plataforma.js`:
+en la web usa el navegador y en la app usa los plugins nativos.
+
+### Requisitos
+- Android: Android Studio (incluye el SDK) y JDK 21.
+- iOS: una Mac con Xcode (`npx cap add ios` la primera vez).
+
+### Configuración
+Creá `.env.production.local` (no se sube a git) con las mismas variables que
+`.env.example`, incluida `VITE_PUBLIC_URL`. La app la usa para armar los links
+que se comparten (invitaciones, link de consulta), porque adentro de la app el
+origen es `https://localhost`.
+
+### Comandos
+```bash
+npm run movil:sync      # compila la web y la copia a los proyectos nativos
+npm run movil:android   # abre el proyecto en Android Studio (Run ▶ para probar)
+npm run movil:apk       # genera android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Íconos y pantalla de inicio
+Las fuentes están en `assets/`. Para regenerarlas:
+`npx @capacitor/assets@4.0.0 generate --android --iconBackgroundColor '#F6EFDC' --splashBackgroundColor '#1B4B43' --splashBackgroundColorDark '#0F332C'`
+
+### Links que abren la app (App Links)
+El manifiesto ya declara `https://app-rueda.netlify.app/unirme/…` y `/publico/…`.
+Para que Android los abra directo en la app sin preguntar, hay que publicar
+`public/.well-known/assetlinks.json` con la huella SHA-256 de la llave con la
+que se firma la versión de Play Store.
